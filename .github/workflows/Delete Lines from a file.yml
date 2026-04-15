@@ -3,6 +3,15 @@ name: Smart Delete Lines
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "Select mode"
+        required: true
+        default: "preview"
+        type: choice
+        options:
+          - preview
+          - delete
+
       file_input:
         description: "File name OR full path"
         required: true
@@ -10,15 +19,6 @@ on:
       lines:
         description: "Lines (e.g. 10 or 10-15 or 10,20)"
         required: true
-
-      preview:
-        description: "Preview only (no changes)?"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - true
-          - false
 
 jobs:
   delete:
@@ -75,7 +75,7 @@ jobs:
           echo "Expression: $SED_EXPR"
 
       - name: Preview changes
-        if: ${{ github.event.inputs.preview == 'true' }}
+        if: ${{ github.event.inputs.mode == 'preview' }}
         run: |
           FILE="${{ env.FILE }}"
           SED_EXPR="${{ env.SED_EXPR }}"
@@ -83,14 +83,13 @@ jobs:
           echo "🔍 Preview (lines to be removed):"
           echo "--------------------------------"
 
-          # Show lines that will be deleted
           sed -n "$(echo $SED_EXPR | sed 's/d/p/g')" "$FILE"
 
           echo "--------------------------------"
-          echo "✅ No changes applied (preview mode)"
+          echo "✅ Preview mode (no changes applied)"
 
       - name: Apply delete
-        if: ${{ github.event.inputs.preview == 'false' }}
+        if: ${{ github.event.inputs.mode == 'delete' }}
         run: |
           FILE="${{ env.FILE }}"
           SED_EXPR="${{ env.SED_EXPR }}"
@@ -98,7 +97,7 @@ jobs:
           sed -i "$SED_EXPR" "$FILE"
 
       - name: Commit & Push
-        if: ${{ github.event.inputs.preview == 'false' }}
+        if: ${{ github.event.inputs.mode == 'delete' }}
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
