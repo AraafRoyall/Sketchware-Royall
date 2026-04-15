@@ -1,15 +1,24 @@
-name: Delete Lines from File
+name: Smart Delete Lines
 
 on:
   workflow_dispatch:
     inputs:
-      file_path:
-        description: "File path"
+      file_input:
+        description: "File name OR full path"
         required: true
 
       lines:
-        description: "Lines to delete (e.g. 10 or 10-15 or 10,20,30-35)"
+        description: "Lines (e.g. 10 or 10-15 or 10,20)"
         required: true
+
+      preview:
+        description: "Preview only (no changes)?"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
 
 jobs:
   delete:
@@ -18,17 +27,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Delete lines
+      - name: Resolve file
         run: |
-          FILE="${{ github.event.inputs.file_path }}"
-          INPUT="${{ github.event.inputs.lines }}"
+          INPUT="${{ github.event.inputs.file_input }}"
 
-          if [ ! -f "$FILE" ]; then
-            echo "File not found"
-            exit 1
+          if [ -f "$INPUT" ]; then
+            FILE="$INPUT"
+          else
+            MATCHES=$(find . -type f -name "$INPUT")
+            COUNT=$(echo "$MATCHES" | grep -c .)
+
+            if [ "$COUNT" -eq 0 ]; then
+              echo "❌ No file found"
+              exit 1
+            elif [ "$COUNT" -gt 1 ]; then
+              echo "⚠️ Multiple files found:"
+              echo "--------------------------------"
+              echo "$MATCHES" | nl
+              echo "--------------------------------"
+              echo "👉 Re-run with full path"
+              exit 1
+            else
+              FILE="$MATCHES"
+            fi
           fi
 
-          # Convert input → sed format
+          echo "Resolved file: $FILE"
+          echo "FILE=$FILE" >> $GITHUB_ENV
+
+      - name: Build sed expression
+        run: |
+          INPUT="${{ github.event.inputs.lines }}"
           SED_EXPR=""
 
           IFS=',' read -ra PARTS <<< "$INPUT"
@@ -42,11 +71,34 @@ jobs:
             fi
           done
 
-          echo "Sed expression: $SED_EXPR"
+          echo "SED_EXPR=$SED_EXPR" >> $GITHUB_ENV
+          echo "Expression: $SED_EXPR"
+
+      - name: Preview changes
+        if: ${{ github.event.inputs.preview == 'true' }}
+        run: |
+          FILE="${{ env.FILE }}"
+          SED_EXPR="${{ env.SED_EXPR }}"
+
+          echo "🔍 Preview (lines to be removed):"
+          echo "--------------------------------"
+
+          # Show lines that will be deleted
+          sed -n "$(echo $SED_EXPR | sed 's/d/p/g')" "$FILE"
+
+          echo "--------------------------------"
+          echo "✅ No changes applied (preview mode)"
+
+      - name: Apply delete
+        if: ${{ github.event.inputs.preview == 'false' }}
+        run: |
+          FILE="${{ env.FILE }}"
+          SED_EXPR="${{ env.SED_EXPR }}"
 
           sed -i "$SED_EXPR" "$FILE"
 
       - name: Commit & Push
+        if: ${{ github.event.inputs.preview == 'false' }}
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
@@ -55,6 +107,6 @@ jobs:
             echo "No changes"
           else
             git add .
-            git commit -m "Delete lines from file"
+            git commit -m "Delete lines from ${{ env.FILE }}"
             git push
           fi
