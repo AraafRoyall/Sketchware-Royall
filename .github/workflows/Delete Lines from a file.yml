@@ -13,7 +13,7 @@ on:
           - Delete
 
       file_path:
-        description: "Full file path (e.g. app/src/Main.java)"
+        description: "File Path"
         required: true
 
       lines:
