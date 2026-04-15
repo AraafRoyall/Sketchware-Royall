@@ -85,7 +85,7 @@ public class CompileLogActivity extends BaseAppCompatActivity {
         boolean has = hasLog();
 
         MenuItem clear = m.add(0,1,0,"Clear");
-        clear.setIcon(R.drawable.delete);
+        clear.setIcon(R.drawable.dlt);
         clear.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         clear.setEnabled(has);
 
