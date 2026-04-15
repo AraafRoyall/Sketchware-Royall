@@ -1,0 +1,52 @@
+name: Commit Reverter
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Revert mode"
+        required: true
+        default: "last"
+        type: choice
+        options:
+          - last
+          - single
+
+      commit_id:
+        description: "Commit ID (only for single mode)"
+        required: false
+
+jobs:
+  revert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+      - name: Revert
+        run: |
+          MODE="${{ github.event.inputs.mode }}"
+
+          if [ "$MODE" = "last" ]; then
+            echo "Reverting last commit"
+            git revert HEAD --no-edit
+
+          elif [ "$MODE" = "single" ]; then
+            COMMIT="${{ github.event.inputs.commit_id }}"
+            if [ -z "$COMMIT" ]; then
+              echo "commit_id is required"
+              exit 1
+            fi
+            echo "Reverting commit: $COMMIT"
+            git revert $COMMIT --no-edit
+          fi
+
+      - name: Push
+        run: git push
