@@ -1,45 +1,28 @@
-name: Advanced Text Replacer
+name: Replace Lines by Number
 
 on:
   workflow_dispatch:
     inputs:
-      scope:
-        description: "Where to replace"
+      mode:
+        description: "Select mode"
         required: true
-        default: "file"
+        default: "preview"
         type: choice
         options:
-          - file
-          - repo
+          - preview
+          - apply
 
-      file_path:
-        description: "File path (required if scope=file)"
-        required: false
-
-      find_text:
-        description: "Exact text to find"
+      file_input:
+        description: "File name OR full path"
         required: true
 
-      replace_text:
-        description: "Text to replace with"
+      lines:
+        description: "Lines (e.g. 10 or 10-12 or 10,20)"
         required: true
 
-      case_sensitive:
-        description: "Case sensitive?"
+      new_content:
+        description: "New content (can be multi-line)"
         required: true
-        default: "true"
-        type: choice
-        options:
-          - true
-          - false
-
-      file_extensions:
-        description: "Filter by extensions (e.g. java,xml,kt) OR leave empty"
-        required: false
-
-      ignore_dirs:
-        description: "Ignore dirs (comma separated, e.g. .git,build,.gradle)"
-        required: false
 
 jobs:
   replace:
@@ -48,62 +31,85 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Replace logic
+      - name: Resolve file
         run: |
-          SCOPE="${{ github.event.inputs.scope }}"
-          FILE="${{ github.event.inputs.file_path }}"
-          FIND="${{ github.event.inputs.find_text }}"
-          REPLACE="${{ github.event.inputs.replace_text }}"
-          CASE="${{ github.event.inputs.case_sensitive }}"
-          EXT="${{ github.event.inputs.file_extensions }}"
-          IGNORE="${{ github.event.inputs.ignore_dirs }}"
+          INPUT="${{ github.event.inputs.file_input }}"
 
-          # Escape safely
-          FIND_ESC=$(printf '%s\n' "$FIND" | sed 's/[\/&]/\\&/g')
-          REPLACE_ESC=$(printf '%s\n' "$REPLACE" | sed 's/[\/&]/\\&/g')
+          if [ -f "$INPUT" ]; then
+            FILE="$INPUT"
+          else
+            MATCHES=$(find . -type f -name "$INPUT")
+            COUNT=$(echo "$MATCHES" | grep -c .)
 
-          FLAG="g"
-          if [ "$CASE" = "false" ]; then
-            FLAG="gi"
+            if [ "$COUNT" -eq 0 ]; then
+              echo "❌ No file found"
+              exit 1
+            elif [ "$COUNT" -gt 1 ]; then
+              echo "⚠️ Multiple files found:"
+              echo "$MATCHES" | nl
+              echo "👉 Use full path"
+              exit 1
+            else
+              FILE="$MATCHES"
+            fi
           fi
 
-          # Build ignore args
-          IGNORE_ARGS=""
-          IFS=',' read -ra DIRS <<< "$IGNORE"
-          for d in "${DIRS[@]}"; do
-            if [ -n "$d" ]; then
-              IGNORE_ARGS="$IGNORE_ARGS -not -path ./$d/*"
+          echo "FILE=$FILE" >> $GITHUB_ENV
+
+      - name: Build sed expression
+        run: |
+          INPUT="${{ github.event.inputs.lines }}"
+          NEW="${{ github.event.inputs.new_content }}"
+
+          SED_EXPR=""
+
+          IFS=',' read -ra PARTS <<< "$INPUT"
+          for part in "${PARTS[@]}"; do
+            if [[ "$part" == *"-"* ]]; then
+              START=$(echo $part | cut -d'-' -f1)
+              END=$(echo $part | cut -d'-' -f2)
+              SED_EXPR="${SED_EXPR}${START},${END}c\\$NEW\n"
+            else
+              SED_EXPR="${SED_EXPR}${part}c\\$NEW\n"
             fi
           done
 
-          # Build extension filter
-          EXT_ARGS=""
-          if [ -n "$EXT" ]; then
-            IFS=',' read -ra EXTS <<< "$EXT"
-            EXT_ARGS="("
-            for e in "${EXTS[@]}"; do
-              EXT_ARGS="$EXT_ARGS -name '*.$e' -o"
-            done
-            EXT_ARGS="${EXT_ARGS::-3} )"
-          else
-            EXT_ARGS="-type f"
-          fi
+          echo "SED_EXPR<<EOF" >> $GITHUB_ENV
+          echo "$SED_EXPR" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
-          if [ "$SCOPE" = "file" ]; then
-            if [ ! -f "$FILE" ]; then
-              echo "File not found"
-              exit 1
-            fi
+      - name: Preview changes
+        if: ${{ github.event.inputs.mode == 'preview' }}
+        run: |
+          FILE="${{ env.FILE }}"
+          SED_EXPR="${{ env.SED_EXPR }}"
 
-            perl -pi -e "s/$FIND_ESC/$REPLACE_ESC/$FLAG" "$FILE"
+          echo "🔍 Preview (before → after)"
+          echo "--------------------------------"
 
-          elif [ "$SCOPE" = "repo" ]; then
-            echo "Running repo-wide replace..."
+          echo "📄 Original:"
+          nl -ba "$FILE" | sed -n '1,200p'
 
-            eval "find . $IGNORE_ARGS $EXT_ARGS -type f -exec perl -pi -e \"s/$FIND_ESC/$REPLACE_ESC/$FLAG\" {} +"
-          fi
+          echo "--------------------------------"
+
+          echo "✏️ After replacement:"
+          sed "$SED_EXPR" "$FILE" | nl -ba | sed -n '1,200p'
+
+          echo "--------------------------------"
+          echo "✅ Preview mode (no changes applied)"
+
+      - name: Apply replacement
+        if: ${{ github.event.inputs.mode == 'apply' }}
+        run: |
+          FILE="${{ env.FILE }}"
+          SED_EXPR="${{ env.SED_EXPR }}"
+
+          TMP=$(mktemp)
+          sed "$SED_EXPR" "$FILE" > "$TMP"
+          mv "$TMP" "$FILE"
 
       - name: Commit & Push
+        if: ${{ github.event.inputs.mode == 'apply' }}
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
@@ -112,6 +118,6 @@ jobs:
             echo "No changes"
           else
             git add .
-            git commit -m "Advanced text replace"
+            git commit -m "Replace lines in ${{ env.FILE }}"
             git push
           fi
