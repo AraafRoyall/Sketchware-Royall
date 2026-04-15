@@ -1,0 +1,117 @@
+name: Advanced Text Replacer
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Where to replace"
+        required: true
+        default: "file"
+        type: choice
+        options:
+          - file
+          - repo
+
+      file_path:
+        description: "File path (required if scope=file)"
+        required: false
+
+      find_text:
+        description: "Exact text to find"
+        required: true
+
+      replace_text:
+        description: "Text to replace with"
+        required: true
+
+      case_sensitive:
+        description: "Case sensitive?"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
+
+      file_extensions:
+        description: "Filter by extensions (e.g. java,xml,kt) OR leave empty"
+        required: false
+
+      ignore_dirs:
+        description: "Ignore dirs (comma separated, e.g. .git,build,.gradle)"
+        required: false
+
+jobs:
+  replace:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Replace logic
+        run: |
+          SCOPE="${{ github.event.inputs.scope }}"
+          FILE="${{ github.event.inputs.file_path }}"
+          FIND="${{ github.event.inputs.find_text }}"
+          REPLACE="${{ github.event.inputs.replace_text }}"
+          CASE="${{ github.event.inputs.case_sensitive }}"
+          EXT="${{ github.event.inputs.file_extensions }}"
+          IGNORE="${{ github.event.inputs.ignore_dirs }}"
+
+          # Escape safely
+          FIND_ESC=$(printf '%s\n' "$FIND" | sed 's/[\/&]/\\&/g')
+          REPLACE_ESC=$(printf '%s\n' "$REPLACE" | sed 's/[\/&]/\\&/g')
+
+          FLAG="g"
+          if [ "$CASE" = "false" ]; then
+            FLAG="gi"
+          fi
+
+          # Build ignore args
+          IGNORE_ARGS=""
+          IFS=',' read -ra DIRS <<< "$IGNORE"
+          for d in "${DIRS[@]}"; do
+            if [ -n "$d" ]; then
+              IGNORE_ARGS="$IGNORE_ARGS -not -path ./$d/*"
+            fi
+          done
+
+          # Build extension filter
+          EXT_ARGS=""
+          if [ -n "$EXT" ]; then
+            IFS=',' read -ra EXTS <<< "$EXT"
+            EXT_ARGS="("
+            for e in "${EXTS[@]}"; do
+              EXT_ARGS="$EXT_ARGS -name '*.$e' -o"
+            done
+            EXT_ARGS="${EXT_ARGS::-3} )"
+          else
+            EXT_ARGS="-type f"
+          fi
+
+          if [ "$SCOPE" = "file" ]; then
+            if [ ! -f "$FILE" ]; then
+              echo "File not found"
+              exit 1
+            fi
+
+            perl -pi -e "s/$FIND_ESC/$REPLACE_ESC/$FLAG" "$FILE"
+
+          elif [ "$SCOPE" = "repo" ]; then
+            echo "Running repo-wide replace..."
+
+            eval "find . $IGNORE_ARGS $EXT_ARGS -type f -exec perl -pi -e \"s/$FIND_ESC/$REPLACE_ESC/$FLAG\" {} +"
+          fi
+
+      - name: Commit & Push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+          if git diff --quiet; then
+            echo "No changes"
+          else
+            git add .
+            git commit -m "Advanced text replace"
+            git push
+          fi
