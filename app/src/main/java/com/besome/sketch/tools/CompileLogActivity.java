@@ -28,14 +28,14 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 
     @SuppressLint("SetTextI18n")
     @Override
-    protected void onCreate(Bundle s) {
+    public void onCreate(Bundle s) { // ✅ FIXED (public)
         enableEdgeToEdgeNoContrast();
         super.onCreate(s);
 
         b = CompileLogBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
 
-        // 🔥 IMPORTANT: attach toolbar
+        // attach toolbar
         setSupportActionBar(b.topAppBar);
 
         i = getIntent();
@@ -55,7 +55,7 @@ public class CompileLogActivity extends BaseAppCompatActivity {
                         ? "Last compile log" : "Compile log"
         );
 
-        // ❌ remove old buttons
+        // remove old buttons
         b.clearButton.setVisibility(View.GONE);
         b.formatButton.setVisibility(View.GONE);
 
@@ -112,13 +112,13 @@ public class CompileLogActivity extends BaseAppCompatActivity {
         if (e == null) e = saver.getLogsFromFile();
 
         if (e == null) {
-            b.noContentLayout.setVisibility(0);
-            b.optionsLayout.setVisibility(8);
+            b.noContentLayout.setVisibility(View.VISIBLE);
+            b.optionsLayout.setVisibility(View.GONE);
             return;
         }
 
-        b.optionsLayout.setVisibility(0);
-        b.noContentLayout.setVisibility(8);
+        b.optionsLayout.setVisibility(View.VISIBLE);
+        b.noContentLayout.setVisibility(View.GONE);
 
         b.tvCompileLog.setText(
                 CompileLogHelper.getColoredLogs(this, e));
@@ -154,11 +154,9 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 
         p.setOnMenuItemClickListener(it -> {
             String t = it.getTitle().toString();
-
             if (t.equals("Wrap text")) wrap(it);
             else if (t.equals("Monospaced font")) mono(it);
             else size();
-
             return true;
         });
 
@@ -234,11 +232,9 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 
     private void copy() {
         String e = saver.getLogsFromFile();
-
-        ClipboardManager c =
-                (ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
-
-        c.setPrimaryClip(ClipData.newPlainText("error", e));
+        ClipboardManager c = (ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+        if (c != null)
+            c.setPrimaryClip(ClipData.newPlainText("error", e));
 
         SketchwareUtil.toast("Copied");
     }
