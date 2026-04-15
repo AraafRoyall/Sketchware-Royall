@@ -55,78 +55,112 @@ jobs:
 
           echo "FILE=$FILE" >> $GITHUB_ENV
 
-      - name: Build logic
+      - name: Detect mode
         run: |
+          if [ -n "${{ github.event.inputs.lines }}" ]; then
+            echo "MODE_TYPE=line" >> $GITHUB_ENV
+          else
+            echo "MODE_TYPE=text" >> $GITHUB_ENV
+          fi
+
+      # 🔍 PREVIEW
+      - name: Preview
+        if: ${{ github.event.inputs.mode == 'Preview' }}
+        run: |
+          FILE="${{ env.FILE }}"
+          MODE_TYPE="${{ env.MODE_TYPE }}"
           INPUT="${{ github.event.inputs.lines }}"
-          NEW="${{ github.event.inputs.replace_text }}"
+          FIND="${{ github.event.inputs.find_text }}"
+          REPLACE="${{ github.event.inputs.replace_text }}"
+          CASE="${{ github.event.inputs.case_sensitive }}"
 
-          SED_EXPR=""
+          echo "🔍 Preview (affected lines only)"
+          echo "--------------------------------"
 
-          if [ -n "$INPUT" ]; then
+          if [ "$MODE_TYPE" = "line" ]; then
+            echo "Mode: Line Replace"
+
             IFS=',' read -ra PARTS <<< "$INPUT"
             for part in "${PARTS[@]}"; do
               if [[ "$part" == *"-"* ]]; then
                 START=$(echo $part | cut -d'-' -f1)
                 END=$(echo $part | cut -d'-' -f2)
-                SED_EXPR="${SED_EXPR}${START},${END}c\\$NEW\n"
               else
-                SED_EXPR="${SED_EXPR}${part}c\\$NEW\n"
+                START=$part
+                END=$part
               fi
+
+              FROM=$((START-2))
+              TO=$((END+2))
+              if [ "$FROM" -lt 1 ]; then FROM=1; fi
+
+              echo "👉 Lines $START-$END"
+              echo "----- BEFORE -----"
+              nl -ba "$FILE" | sed -n "${FROM},${TO}p"
+
+              echo "----- AFTER ------"
+              sed "${START},${END}c\\
+$REPLACE
+" "$FILE" | nl -ba | sed -n "${FROM},${TO}p"
+
+              echo "------------------"
             done
-          fi
 
-          echo "SED_EXPR<<EOF" >> $GITHUB_ENV
-          echo "$SED_EXPR" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-      - name: Preview
-        if: ${{ github.event.inputs.mode == 'Preview' }}
-        run: |
-          FILE="${{ env.FILE }}"
-          SED_EXPR="${{ env.SED_EXPR }}"
-          FIND="${{ github.event.inputs.find_text }}"
-          REPLACE="${{ github.event.inputs.replace_text }}"
-          CASE="${{ github.event.inputs.case_sensitive }}"
-
-          echo "🔍 Preview"
-          echo "--------------------------------"
-
-          echo "📄 Original:"
-          nl -ba "$FILE" | sed -n '1,200p'
-
-          echo "--------------------------------"
-          echo "✏️ After:"
-
-          if [ -n "$SED_EXPR" ]; then
-            echo "Mode: Line Replace"
-            sed "$SED_EXPR" "$FILE" | nl -ba | sed -n '1,200p'
           else
             echo "Mode: Text Replace"
+
             FLAG="g"
             if [ "$CASE" = "false" ]; then FLAG="gi"; fi
 
-            perl -pe "s/\Q$FIND\E/\Q$REPLACE\E/$FLAG" "$FILE" | nl -ba | sed -n '1,200p'
+            echo "👉 Matching lines:"
+            grep -n "$FIND" "$FILE" || echo "No matches"
+
+            echo "----- AFTER ------"
+            perl -pe "s/\Q$FIND\E/\Q$REPLACE\E/$FLAG" "$FILE" | grep -n "$REPLACE" || true
           fi
 
           echo "--------------------------------"
           echo "✅ Preview only"
 
+      # 🚀 APPLY
       - name: Apply changes
         if: ${{ github.event.inputs.mode == 'Replace' }}
         run: |
           FILE="${{ env.FILE }}"
-          SED_EXPR="${{ env.SED_EXPR }}"
+          MODE_TYPE="${{ env.MODE_TYPE }}"
+          INPUT="${{ github.event.inputs.lines }}"
           FIND="${{ github.event.inputs.find_text }}"
           REPLACE="${{ github.event.inputs.replace_text }}"
           CASE="${{ github.event.inputs.case_sensitive }}"
 
-          if [ -n "$SED_EXPR" ]; then
+          if [ "$MODE_TYPE" = "line" ]; then
             echo "Applying line replace"
+
             TMP=$(mktemp)
-            sed "$SED_EXPR" "$FILE" > "$TMP"
+
+            IFS=',' read -ra PARTS <<< "$INPUT"
+            SED_SCRIPT=""
+
+            for part in "${PARTS[@]}"; do
+              if [[ "$part" == *"-"* ]]; then
+                START=$(echo $part | cut -d'-' -f1)
+                END=$(echo $part | cut -d'-' -f2)
+              else
+                START=$part
+                END=$part
+              fi
+
+              SED_SCRIPT="${SED_SCRIPT}${START},${END}c\\
+$REPLACE
+"
+            done
+
+            sed "$SED_SCRIPT" "$FILE" > "$TMP"
             mv "$TMP" "$FILE"
+
           else
             echo "Applying text replace"
+
             FLAG="g"
             if [ "$CASE" = "false" ]; then FLAG="gi"; fi
 
