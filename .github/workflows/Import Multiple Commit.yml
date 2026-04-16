@@ -32,7 +32,7 @@ jobs:
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           git checkout -b $BRANCH
 
-      - name: Apply URL
+      - name: Apply URL (Force Mode)
         run: |
           URL="${{ github.event.inputs.url }}"
           echo "Processing: $URL"
@@ -46,12 +46,38 @@ jobs:
 
           if [[ "$URL" == *"/commit/"* ]]; then
             ID=$(echo $URL | cut -d'/' -f7)
-            git cherry-pick $ID
+
+            echo "Trying cherry-pick..."
+            git cherry-pick -X theirs $ID || {
+              echo "Cherry-pick failed → fallback to patch"
+
+              git cherry-pick --abort || true
+
+              git fetch external $ID
+              git show $ID | git apply --reject --whitespace=fix || true
+
+              git add .
+              git commit -m "force import commit $ID"
+            }
 
           elif [[ "$URL" == *"/pull/"* ]]; then
             ID=$(echo $URL | cut -d'/' -f7)
+
             git fetch external pull/$ID/head:external-pr
-            git merge external-pr --allow-unrelated-histories
+
+            echo "Merging PR with override..."
+            git merge -X theirs external-pr --allow-unrelated-histories || {
+              echo "Merge failed → force commit"
+
+              git merge --abort || true
+              git reset --hard
+              git pull origin $BASE
+
+              git merge -X theirs external-pr --allow-unrelated-histories || true
+
+              git add .
+              git commit -m "force import PR $ID"
+            }
           fi
 
       - name: Push branch
