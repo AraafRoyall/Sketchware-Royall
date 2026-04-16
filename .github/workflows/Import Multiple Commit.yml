@@ -28,7 +28,7 @@ jobs:
 
       - name: Create new branch
         run: |
-          BRANCH="import-$(date +%s)"
+          BRANCH="import-${{ github.run_number }}"
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           git checkout -b $BRANCH
 
