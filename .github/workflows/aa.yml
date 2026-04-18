@@ -1,0 +1,22 @@
+name: Find Text in Repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: "Enter exact text to search"
+        required: true
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Search Text
+        run: |
+          echo "Searching for: '${{ github.event.inputs.query }}'"
+          
+          grep -rnF --exclude-dir=.git "${{ github.event.inputs.query }}" . || echo "No matches found"
