@@ -16,6 +16,9 @@ on:
         description: "Commit ID (only for single mode)"
         required: false
 
+permissions:
+  contents: write
+
 jobs:
   revert:
     runs-on: ubuntu-latest
