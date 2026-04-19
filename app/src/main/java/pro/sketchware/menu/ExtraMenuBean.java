@@ -804,7 +804,64 @@ public class ExtraMenuBean {
 				
 				case "Map":
 				if (
-				type.contains("Map") &&
+				(type.contains("HashMap") || type.contains("Map")) &&
+				type.contains("String") &&
+				type.contains("Object") &&
+				!type.contains("ArrayList")
+				) {
+					menus.add(name);
+				}
+				break;
+			}
+		}
+		
+		return new ArrayList<>(new java.util.LinkedHashSet<>(menus));
+	}
+	
+	@NonNull
+	private ArrayList<String> getListMenus(int listType) {
+		// base lists from Sketchware
+		ArrayList<String> menus = new ArrayList<>(projectDataManager.d(javaName, listType));
+		
+		// custom variables (raw)
+		for (String variable : projectDataManager.e(javaName, 6)) {
+			String type = CustomVariableUtil.getVariableType(variable);
+			String name = CustomVariableUtil.getVariableName(variable);
+			
+			if (type == null || name == null) continue;
+			
+			switch (listType) {
+				
+				case LIST_TYPE_STRING:
+				if (
+				type.startsWith("ArrayList") &&
+				type.contains("String") &&
+				!type.contains("HashMap")
+				) {
+					menus.add(name);
+				}
+				break;
+				
+				case LIST_TYPE_NUMBER:
+				if (
+				type.startsWith("ArrayList") &&
+				(
+				type.contains("Double") ||
+				type.contains("Integer") ||
+				type.contains("Float") ||
+				type.contains("Long") ||
+				type.contains("Short")
+				) &&
+				!type.contains("HashMap")
+				) {
+					menus.add(name);
+				}
+				break;
+				
+				case LIST_TYPE_MAP:
+				if (
+				type.startsWith("ArrayList") &&
+				type.contains("HashMap") &&
 				type.contains("String") &&
 				type.contains("Object")
 				) {
@@ -814,14 +871,8 @@ public class ExtraMenuBean {
 			}
 		}
 		
-		// remove duplicates safely
-		menus = new ArrayList<>(new java.util.LinkedHashSet<>(menus));
-		
-		return menus;
-	}
-	
-	private ArrayList<String> getListMenus(int type) {
-		return projectDataManager.d(javaName, type);
+		// remove duplicates
+		return new ArrayList<>(new java.util.LinkedHashSet<>(menus));
 	}
 	
 	private ArrayList<String> getComponentMenus(int type) {
