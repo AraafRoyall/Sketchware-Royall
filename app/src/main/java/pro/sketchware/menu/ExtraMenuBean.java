@@ -766,10 +766,17 @@ public class ExtraMenuBean {
 		return projectDataManager.e(javaName, type);
 	}
 	
+	
+	
+	
+	
+	
 	@NonNull
 	private ArrayList<String> getDynamicMenus(int baseType, String mode) {
+		
 		ArrayList<String> menus = new ArrayList<>(projectDataManager.e(javaName, baseType));
 		
+		// ✅ Existing custom variables
 		for (String variable : projectDataManager.e(javaName, 6)) {
 			String type = CustomVariableUtil.getVariableType(variable);
 			String name = CustomVariableUtil.getVariableName(variable);
@@ -779,9 +786,7 @@ public class ExtraMenuBean {
 			switch (mode) {
 				
 				case "String":
-				if ("String".equals(type)) {
-					menus.add(name);
-				}
+				if ("String".equals(type)) menus.add(name);
 				break;
 				
 				case "Number":
@@ -791,15 +796,11 @@ public class ExtraMenuBean {
 				"float".equals(type) ||
 				"long".equals(type) ||
 				"short".equals(type)
-				) {
-					menus.add(name);
-				}
+				) menus.add(name);
 				break;
 				
 				case "Boolean":
-				if ("boolean".equals(type)) {
-					menus.add(name);
-				}
+				if ("boolean".equals(type)) menus.add(name);
 				break;
 				
 				case "Map":
@@ -808,6 +809,52 @@ public class ExtraMenuBean {
 				type.contains("String") &&
 				type.contains("Object") &&
 				!type.contains("ArrayList")
+				) menus.add(name);
+				break;
+			}
+		}
+		// 🔥 ADD COMPONENT SUPPORT
+		
+		ArrayList<ComponentBean> comps = projectDataManager.e(javaName);
+		
+		for (ComponentBean c : comps) {
+			
+			String name = c.componentId;
+			String additional = projectDataManager.b(javaName, name);
+			
+			if (additional == null) continue;
+			
+			switch (mode) {
+				
+				case "String":
+				if (additional.contains("String")) {
+					menus.add(name);
+				}
+				break;
+				
+				case "Number":
+				if (
+				additional.contains("int") ||
+				additional.contains("double") ||
+				additional.contains("float") ||
+				additional.contains("long") ||
+				additional.contains("short")
+				) {
+					menus.add(name);
+				}
+				break;
+				
+				case "Boolean":
+				if (additional.contains("boolean")) {
+					menus.add(name);
+				}
+				break;
+				
+				case "Map":
+				if (
+				additional.contains("Map") &&
+				additional.contains("String") &&
+				additional.contains("Object")
 				) {
 					menus.add(name);
 				}
@@ -815,8 +862,20 @@ public class ExtraMenuBean {
 			}
 		}
 		
+		
+		
+		
 		return new ArrayList<>(new java.util.LinkedHashSet<>(menus));
 	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	@NonNull
 	private ArrayList<String> getListMenus(int listType) {
