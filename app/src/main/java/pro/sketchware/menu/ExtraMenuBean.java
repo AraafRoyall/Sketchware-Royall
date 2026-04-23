@@ -768,33 +768,6 @@ public class ExtraMenuBean {
 	}
 	
 	
-	public static ArrayList<String> getDynamicMenus(String mode, String javaName, eC projectDataManager) {
-		ArrayList<String> menus = new ArrayList<>();
-		
-		// 🔹 NORMAL VARIABLES (from eC.java)
-		for (Pair<String, String> var : projectDataManager.i(javaName)) {
-			String varType = var.first;
-			String varName = var.second;
-			
-			if (matchesVarTypeString(varType, mode)) {
-				menus.add(varName);
-			}
-		}
-		
-		// 🔹 COMPONENT VARIABLES (runtime)
-		for (ComponentBean componentBean : projectDataManager.e(javaName)) {
-			
-			String buildClass = ComponentsHandler.getBuildClassById(componentBean.type);
-			if (buildClass == null || buildClass.isEmpty()) continue;
-			
-			if (matchesComponentType(buildClass, mode)) {
-				menus.add(componentBean.componentId);
-			}
-		}
-		
-		return menus;
-	}	
-	
 	
 	// 🔥 COMPONENT + ADDITIONAL VAR SUPPORT
 	private static boolean matchesVarTypeString(String type, String mode) {
@@ -1026,4 +999,162 @@ public class ExtraMenuBean {
 		FilePickerDialogFragment fpd = new FilePickerDialogFragment(mOptions, callback);
 		fpd.show(logicEditor.getSupportFragmentManager(), "filePicker");
 	}
+	
+	
+	
+	@NonNull
+	public ArrayList<String> getDynamicMenus(String mode, String javaName, eC projectDataManager) {
+		
+		ArrayList<String> menus = new ArrayList<>();
+		
+		// ✅ 1. BASE VARIABLES
+		switch (mode) {
+			case "Number":
+			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_NUMBER));
+			break;
+			
+			case "Boolean":
+			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_BOOLEAN));
+			break;
+			
+			case "String":
+			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_STRING));
+			break;
+			
+			case "Map":
+			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_MAP));
+			break;
+		}
+		
+		// ✅ 2. CUSTOM VARIABLES
+		for (String variable : projectDataManager.e(javaName, 6)) {
+			
+			String type = CustomVariableUtil.getVariableType(variable);
+			String name = CustomVariableUtil.getVariableName(variable);
+			
+			if (type == null || name == null) continue;
+			
+			String baseType = getBaseType(type);
+			
+			switch (mode) {
+				
+				case "String":
+				if (baseType.equals("String")) {
+					menus.add(name);
+				}
+				break;
+				
+				case "Number":
+				if (
+				baseType.equals("int") || baseType.equals("double") ||
+				baseType.equals("float") || baseType.equals("long") ||
+				baseType.equals("short") ||
+				baseType.equals("Integer") || baseType.equals("Double") ||
+				baseType.equals("Float") || baseType.equals("Long")
+				) {
+					menus.add(name);
+				}
+				break;
+				
+				case "Boolean":
+				if (baseType.equals("boolean") || baseType.equals("Boolean")) {
+					menus.add(name);
+				}
+				break;
+				
+				case "Map":
+				if (
+				isMap(type) && !isList(type)
+				) {
+					menus.add(name);
+				}
+				break;
+			}
+		}
+		
+		// ✅ 3. COMPONENT additionalVar
+		for (ComponentBean componentBean : projectDataManager.e(javaName)) {
+			
+			String typeName = ComponentsHandler.typeName(componentBean.type);
+			String additionalVar = getAdditionalVar(typeName);
+			
+			ArrayList<String> vars = extractVars(additionalVar);
+			
+			for (String entry : vars) {
+				
+				String[] parts = entry.split(":");
+				if (parts.length != 2) continue;
+				
+				String varType = parts[0];
+				String varName = parts[1];
+				
+				String baseType = getBaseType(varType);
+				
+				switch (mode) {
+					
+					case "String":
+					if (baseType.equals("String")) {
+						menus.add(varName);
+					}
+					break;
+					
+					case "Number":
+					if (
+					baseType.equals("int") || baseType.equals("double") ||
+					baseType.equals("float") || baseType.equals("long")
+					) {
+						menus.add(varName);
+					}
+					break;
+					
+					case "Boolean":
+					if (baseType.equals("boolean")) {
+						menus.add(varName);
+					}
+					break;
+					
+					case "Map":
+					if (isMap(varType) && !isList(varType)) {
+						menus.add(varName);
+					}
+					break;
+				}
+			}
+		}
+		
+		return new ArrayList<>(new java.util.LinkedHashSet<>(menus));
+	}
+	
+	
+	
+	private static String getBaseType(String type) {
+		if (type == null) return "";
+		
+		int index = type.indexOf("<");
+		if (index != -1) {
+			return type.substring(0, index).trim();
+		}
+		
+		return type.trim();
+	}
+	
+	
+	private static boolean isMap(String type) {
+		if (type == null) return false;
+		
+		String base = getBaseType(type);
+		return base.equals("HashMap") || base.equals("Map");
+	}
+	
+	
+	
+	private static boolean isList(String type) {
+		if (type == null) return false;
+		
+		String base = getBaseType(type);
+		return base.equals("ArrayList") || base.equals("List");
+	}
+	
+	
+	
 }
