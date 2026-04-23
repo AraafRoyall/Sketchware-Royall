@@ -836,83 +836,26 @@ public class ExtraMenuBean {
 	}
 	
 	// 🔥 COMPONENT + ADDITIONAL VAR SUPPORT
-	
-	ArrayList<ComponentBean> comps = projectDataManager.e(javaName);
-	
-	for (ComponentBean c : comps) {
-		
-		String compName = c.componentId;
-		String additional = projectDataManager.b(javaName, compName);
-		
-		if (additional == null) continue;
-		
-		// ✅ add component itself (filtered by mode)
-		switch (mode) {
-			
-			case "String":
-			if (additional.contains("String")) menus.add(compName);
-			break;
-			
-			case "Number":
-			if (
-			additional.contains("int") ||
-			additional.contains("double") ||
-			additional.contains("float") ||
-			additional.contains("long") ||
-			additional.contains("short")
-			) menus.add(compName);
-			break;
-			
-			case "Boolean":
-			if (additional.contains("boolean")) menus.add(compName);
-			break;
-			
-			case "Map":
-			if (additional.contains("Map") || additional.contains("HashMap")) menus.add(compName);
-			break;
-		}
-		
-		// ✅ extract internal variables
-		ArrayList<String> vars = extractVars(additional);
-		
-		for (String v : vars) {
-			
-			String[] parts = v.split(":");
-			if (parts.length != 2) continue;
-			
-			String type = parts[0];
-			String name = parts[1];
-			
-			switch (mode) {
-				
-				case "String":
-				if ("String".equals(type)) menus.add(name);
-				break;
-				
-				case "Number":
-				if (
-				type.equals("int") ||
-				type.equals("double") ||
-				type.equals("float") ||
-				type.equals("long") ||
-				type.equals("short")
-				) menus.add(name);
-				break;
-				
-				case "Boolean":
-				if ("boolean".equals(type)) menus.add(name);
-				break;
-				
-				case "Map":
-				if (type.contains("Map") || type.contains("HashMap")) menus.add(name);
-				break;
-			}
-		}
-	}
-	
-	return new ArrayList<>(new java.util.LinkedHashSet<>(menus));
-}	
+public static String getVarType(String componentTypeName) {
 
+    for (HashMap<String, Object> component : cachedCustomComponents) {
+
+        if (component == null) continue;
+
+        Object typeName = component.get("typeName");
+
+        if (componentTypeName.equals(typeName)) {
+
+            Object varType = component.get("varType"); // 🔥 MUST exist in JSON
+
+            if (varType instanceof String) {
+                return (String) varType;
+            }
+        }
+    }
+
+    return null;
+}
 
 private ArrayList<String> extractVars(String code) {
 	
