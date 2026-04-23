@@ -810,65 +810,6 @@ public class ExtraMenuBean {
 		return list;
 	}	
 	
-	
-	
-	@NonNull
-	private ArrayList<String> getListMenus(int listType) {
-		// base lists from Sketchware
-		ArrayList<String> menus = new ArrayList<>(projectDataManager.d(javaName, listType));
-		
-		// custom variables (raw)
-		for (String variable : projectDataManager.e(javaName, 6)) {
-			String type = CustomVariableUtil.getVariableType(variable);
-			String name = CustomVariableUtil.getVariableName(variable);
-			
-			if (type == null || name == null) continue;
-			
-			switch (listType) {
-				
-				case LIST_TYPE_STRING:
-				if (
-				type.startsWith("ArrayList") &&
-				type.contains("String") &&
-				!type.contains("HashMap")
-				) {
-					menus.add(name);
-				}
-				break;
-				
-				case LIST_TYPE_NUMBER:
-				if (
-				type.startsWith("ArrayList") &&
-				(
-				type.contains("Double") ||
-				type.contains("Integer") ||
-				type.contains("Float") ||
-				type.contains("Long") ||
-				type.contains("Short")
-				) &&
-				!type.contains("HashMap")
-				) {
-					menus.add(name);
-				}
-				break;
-				
-				case LIST_TYPE_MAP:
-				if (
-				type.startsWith("ArrayList") &&
-				type.contains("HashMap") &&
-				type.contains("String") &&
-				type.contains("Object")
-				) {
-					menus.add(name);
-				}
-				break;
-			}
-		}
-		
-		// remove duplicates
-		return new ArrayList<>(new java.util.LinkedHashSet<>(menus));
-	}
-	
 	private ArrayList<String> getComponentMenus(int type) {
 		return projectDataManager.b(javaName, type);
 	}
@@ -937,10 +878,6 @@ public class ExtraMenuBean {
 		fpd.show(logicEditor.getSupportFragmentManager(), "filePicker");
 	}
 	
-	
-	// =========================
-	// ✅ UNIVERSAL TYPE MATCHER
-	// =========================
 	private static boolean matchesType(String type, String mode) {
 		
 		if (type == null) return false;
@@ -974,11 +911,8 @@ public class ExtraMenuBean {
 		
 		return false;
 	}
-	
-	
-	// =========================
-	// ✅ BASE TYPE EXTRACTOR
-	// =========================
+
+
 	private static String getBaseType(String type) {
 		
 		if (type == null) return "";
@@ -991,10 +925,6 @@ public class ExtraMenuBean {
 		return type.trim();
 	}
 	
-	
-	// =========================
-	// ✅ REAL MAP CHECK (NO LIST)
-	// =========================
 	private static boolean isRealMap(String type) {
 		
 		if (type == null) return false;
@@ -1007,17 +937,11 @@ public class ExtraMenuBean {
 	}
 	
 	
-	// =========================
-	// ✅ FINAL DYNAMIC MENU
-	// =========================
 	@NonNull
 	public ArrayList<String> getDynamicMenus(String mode, String javaName, eC projectDataManager) {
 		
 		LinkedHashSet<String> menus = new LinkedHashSet<>();
 		
-		// =========================
-		// ✅ 1. BASE VARIABLES
-		// =========================
 		switch (mode) {
 			
 			case "Number":
@@ -1036,18 +960,11 @@ public class ExtraMenuBean {
 			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_MAP));
 			break;
 		}
-		
-		
-		// =========================
-		// ✅ PRELOAD (PERFORMANCE)
-		// =========================
+
+
 		ArrayList<String> customVars = projectDataManager.e(javaName, 6);
 		ArrayList<ComponentBean> components = projectDataManager.e(javaName);
 		
-		
-		// =========================
-		// ✅ 2. CUSTOM VARIABLES
-		// =========================
 		for (String variable : customVars) {
 			
 			String type = CustomVariableUtil.getVariableType(variable);
@@ -1060,10 +977,6 @@ public class ExtraMenuBean {
 			}
 		}
 		
-		
-		// =========================
-		// ✅ 3. COMPONENT VARIABLES
-		// =========================
 		for (ComponentBean comp : components) {
 			
 			String build = ComponentsHandler.getBuildClassById(comp.type);
@@ -1075,11 +988,83 @@ public class ExtraMenuBean {
 			}
 		}
 		
-		
-		// =========================
-		// ✅ FINAL RESULT
-		// =========================
 		return new ArrayList<>(menus);
 	}
+	
+	private static boolean isRealList(String type) {
+		
+		if (type == null) return false;
+		
+		String base = getBaseType(type);
+		
+		return (base.endsWith("ArrayList") || base.endsWith("List"));
+	}
+	
+	// =========================
+	// ✅ LIST TYPE MATCHER
+	// =========================
+	private static boolean matchesListType(String type, int listType) {
+		
+		if (!isRealList(type)) return false;
+		
+		switch (listType) {
+			
+			case LIST_TYPE_STRING:
+			return type.contains("String") && !type.contains("HashMap");
+			
+			case LIST_TYPE_NUMBER:
+			return (
+			type.contains("Double") ||
+			type.contains("Integer") ||
+			type.contains("Float") ||
+			type.contains("Long") ||
+			type.contains("Short")
+			) && !type.contains("HashMap");
+			
+			case LIST_TYPE_MAP:
+			return type.contains("HashMap") &&
+			type.contains("String") &&
+			type.contains("Object");
+		}
+		
+		return false;
+	}
+	
+	@NonNull
+	private ArrayList<String> getListMenus(int listType) {
+		
+		LinkedHashSet<String> menus = new LinkedHashSet<>();
+		
+		menus.addAll(projectDataManager.d(javaName, listType));
+
+		ArrayList<String> customVars = projectDataManager.e(javaName, 6);
+		ArrayList<ComponentBean> components = projectDataManager.e(javaName);
+		
+		for (String variable : customVars) {
+			
+			String type = CustomVariableUtil.getVariableType(variable);
+			String name = CustomVariableUtil.getVariableName(variable);
+			
+			if (type == null || name == null) continue;
+			
+			if (matchesListType(type, listType)) {
+				menus.add(name);
+			}
+		}
+		
+		for (ComponentBean comp : components) {
+			
+			String build = ComponentsHandler.getBuildClassById(comp.type);
+			
+			if (build == null) continue;
+			
+			if (matchesListType(build, listType)) {
+				menus.add(comp.componentId);
+			}
+		}
+		
+		return new ArrayList<>(menus);
+	}
+	
 	
 }
