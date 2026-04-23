@@ -671,25 +671,4 @@ public class ComponentsHandler {
         return new Pair<>(Optional.empty(), components);
     }
 
-public static String getVarType(String componentTypeName) {
-
-    for (HashMap<String, Object> component : cachedCustomComponents) {
-
-        if (component == null) continue;
-
-        Object typeName = component.get("typeName");
-
-        if (typeName instanceof String && componentTypeName.equals(typeName)) {
-
-            Object varType = component.get("varType");
-
-            if (varType instanceof String) {
-                return (String) varType;
-            }
-        }
-    }
-
-    return null;
-}
-
 }
