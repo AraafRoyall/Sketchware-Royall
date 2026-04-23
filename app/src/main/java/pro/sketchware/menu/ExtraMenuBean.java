@@ -769,71 +769,88 @@ public class ExtraMenuBean {
 	
 	
 	
-	@NonNull
-	private ArrayList<String> getDynamicMenus(int baseType, String mode) {
+	public static ArrayList<String> getDynamicMenus(String mode, String javaName, eC projectDataManager) {
+		ArrayList<String> menus = new ArrayList<>();
 		
-		ArrayList<String> menus = new ArrayList<>(projectDataManager.e(javaName, baseType));
-		
-		// ✅ Existing custom variables
-		for (String variable : projectDataManager.e(javaName, 6)) {
+		// ✅ 1. NORMAL VARIABLES
+		for (Pair<Integer, String> var : projectDataManager.i(javaName)) {
+			int varType = var.first;
+			String varName = var.second;
 			
-			String type = CustomVariableUtil.getVariableType(variable);
-			String name = CustomVariableUtil.getVariableName(variable);
-			
-			if (type == null || name == null) continue;
-			
-			if (matchesType(type, mode)) {
-				menus.add(name);
+			if (matchesVarType(varType, mode)) {
+				menus.add(varName);
 			}
 		}
 		
-		// ✅ Components (only added in activity)
+		// ✅ 2. COMPONENT VARIABLES (runtime)
 		for (ComponentBean componentBean : projectDataManager.e(javaName)) {
 			
-			// ✅ Convert int → typeName
-			String typeName = ComponentsHandler.name(componentBean.type);
+			String buildClass = ComponentsHandler.getBuildClassById(componentBean.type);
+			if (buildClass == null || buildClass.isEmpty()) continue;
 			
-			// ✅ Get variable type from JSON
-			String compType = ComponentsHandler.getVarType(typeName);
+			int compType = detectComponentType(buildClass);
 			
-			if (compType == null) continue;
-			
-			if (matchesType(compType, mode)) {
-				menus.add(componentBean.componentId);
+			if (matchesVarType(compType, mode)) {
+				menus.add(componentBean.componentId); // 🔥 IMPORTANT
 			}
 		}
+		
 		return menus;
-	}
+	}	
 	
-	
-	private boolean matchesType(String type, String mode) {
-		
+	private static boolean matchesVarType(int type, String mode) {
 		switch (mode) {
-			
-			case "String":
-			return "String".equals(type);
-			
-			case "Number":
-			return type.equals("int") ||
-			type.equals("double") ||
-			type.equals("float") ||
-			type.equals("long") ||
-			type.equals("short");
-			
-			case "Boolean":
-			return "boolean".equals(type);
-			
-			case "Map":
-			return (type.contains("HashMap") || type.contains("Map")) &&
-			type.contains("String") &&
-			type.contains("Object") &&
-			!type.contains("ArrayList");
+			case "String": return type == 0;
+			case "Number": return type == 1;
+			case "Boolean": return type == 2;
+			case "List": return type == 3;
+			case "Map": return type == 4;
+			case "Object": return type == 5;
 		}
-		
 		return false;
 	}
-	
 	// 🔥 COMPONENT + ADDITIONAL VAR SUPPORT
+	
+	private static int detectComponentType(String className) {
+		
+		if (className == null) return 5;
+		
+		className = className.toLowerCase();
+		
+		// String
+		if (className.contains("string")) {
+			return 0;
+		}
+		
+		// Number
+		if (className.contains("int") ||
+		className.contains("double") ||
+		className.contains("float") ||
+		className.contains("long") ||
+		className.contains("number")) {
+			return 1;
+		}
+		
+		// Boolean
+		if (className.contains("boolean")) {
+			return 2;
+		}
+		
+		// List
+		if (className.contains("arraylist") ||
+		className.contains("list")) {
+			return 3;
+		}
+		
+		// Map
+		if (className.contains("hashmap") ||
+		className.contains("map")) {
+			return 4;
+		}
+		
+		// Default → Object
+		return 5;
+	}
 	
 	
 	private ArrayList<String> extractVars(String code) {
