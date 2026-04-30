@@ -24,7 +24,8 @@ public class EditorsAdapter extends FragmentStateAdapter {
             case 2 -> activity.stylesEditor;
             case 3 -> activity.themesEditor;
             case 4 -> activity.arraysEditor;
-            case 5 -> activity.dimensEditor;
+            case 5 -> activity.intsEditor;
+            case 6 -> activity.dimensEditor;
             default -> throw new IllegalArgumentException("Invalid position");
         };
     }
