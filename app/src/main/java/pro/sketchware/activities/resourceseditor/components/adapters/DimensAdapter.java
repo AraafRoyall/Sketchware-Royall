@@ -1,85 +1,66 @@
 package pro.sketchware.activities.resourceseditor.components.adapters;
 
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-
+import android.view.*;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.stream.Collectors;
+import java.util.*;
 
 import pro.sketchware.activities.resourceseditor.ResourcesEditorActivity;
 import pro.sketchware.activities.resourceseditor.components.models.DimenModel;
 import pro.sketchware.databinding.PalletCustomviewBinding;
 
-public class DimensAdapter extends RecyclerView.Adapter<DimensAdapter.ViewHolder> {
+public class DimensAdapter extends RecyclerView.Adapter<DimensAdapter.VH> {
 
-    private final ArrayList<DimenModel> originalData;
-    private final HashMap<Integer, String> notesMap;
+    private final ArrayList<DimenModel> data;
     private final ResourcesEditorActivity activity;
-    private ArrayList<DimenModel> filteredData;
+    private final HashMap<Integer, String> notes;
 
-    public DimensAdapter(ArrayList<DimenModel> filteredData, ResourcesEditorActivity activity, HashMap<Integer, String> notesMap) {
-        originalData = new ArrayList<>(filteredData);
-        this.filteredData = filteredData;
-        this.activity = activity;
-        this.notesMap = notesMap;
+    public DimensAdapter(ArrayList<DimenModel> data,
+                         ResourcesEditorActivity act,
+                         HashMap<Integer, String> notes) {
+        this.data = data;
+        this.activity = act;
+        this.notes = notes;
     }
 
     @NonNull
     @Override
-    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        PalletCustomviewBinding itemBinding = PalletCustomviewBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false);
-        return new ViewHolder(itemBinding);
+    public VH onCreateViewHolder(@NonNull ViewGroup p, int v) {
+        return new VH(PalletCustomviewBinding.inflate(LayoutInflater.from(p.getContext()), p, false));
     }
 
     @Override
-    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        DimenModel dimenModel = filteredData.get(position);
-        int originalIndex = originalData.indexOf(dimenModel);
+    public void onBindViewHolder(@NonNull VH h, int pos) {
 
-        if (originalIndex >= 0 && notesMap.containsKey(originalIndex)) {
-            holder.itemBinding.tvTitle.setText(notesMap.get(originalIndex));
-            holder.itemBinding.tvTitle.setVisibility(View.VISIBLE);
+        DimenModel m = data.get(pos);
+
+        h.b.title.setText(m.getDimenName());
+        h.b.sub.setText(m.getDimenValue() + m.getDimenUnit()); // preview
+
+        if (notes.containsKey(pos)) {
+            h.b.tvTitle.setText(notes.get(pos));
+            h.b.tvTitle.setVisibility(View.VISIBLE);
         } else {
-            holder.itemBinding.tvTitle.setVisibility(View.GONE);
+            h.b.tvTitle.setVisibility(View.GONE);
         }
 
-        holder.itemBinding.title.setText(dimenModel.getDimenName());
-        holder.itemBinding.sub.setText(dimenModel.getDimenValue() + dimenModel.getDimenUnit());
-        holder.itemBinding.color.setVisibility(View.GONE);
+        h.b.color.setVisibility(View.GONE);
 
-        holder.itemBinding.backgroundCard.setOnClickListener(v ->
-                activity.dimensEditor.showDimenEditDialog(dimenModel, position));
+        h.b.backgroundCard.setOnClickListener(v ->
+                activity.dimensEditor.showEdit(pos));
     }
 
     @Override
     public int getItemCount() {
-        return filteredData.size();
+        return data.size();
     }
 
-    public void filter(String newText) {
-        if (newText == null || newText.isEmpty()) {
-            filteredData = new ArrayList<>(originalData);
-        } else {
-            String filterText = newText.toLowerCase().trim();
-            filteredData = originalData.stream()
-                    .filter(item -> item.getDimenName().toLowerCase().contains(filterText) ||
-                            (item.getDimenValue() + item.getDimenUnit()).toLowerCase().contains(filterText))
-                    .collect(Collectors.toCollection(ArrayList::new));
-        }
-        notifyDataSetChanged();
-    }
-
-    public static class ViewHolder extends RecyclerView.ViewHolder {
-        public PalletCustomviewBinding itemBinding;
-
-        public ViewHolder(PalletCustomviewBinding itemBinding) {
-            super(itemBinding.getRoot());
-            this.itemBinding = itemBinding;
+    static class VH extends RecyclerView.ViewHolder {
+        PalletCustomviewBinding b;
+        VH(PalletCustomviewBinding b) {
+            super(b.getRoot());
+            this.b = b;
         }
     }
 }
