@@ -1,16 +1,11 @@
 package pro.sketchware.activities.resourceseditor.components.utils;
 
-import org.w3c.dom.Comment;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+import org.w3c.dom.*;
 import org.xml.sax.InputSource;
 
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -21,82 +16,72 @@ import pro.sketchware.activities.resourceseditor.components.models.DimenModel;
 
 public class DimensEditorManager {
 
-    public String contentPath;
     public boolean isDataLoadingFailed;
     public HashMap<Integer, String> notesMap = new HashMap<>();
 
-    private static final Pattern DIMEN_PATTERN =
-            Pattern.compile("^([+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+))(dp|sp)$", Pattern.CASE_INSENSITIVE);
+    private final Pattern pattern = Pattern.compile("([0-9.]+)(dp|sp)");
 
-    public void parseDimensXML(ArrayList<DimenModel> dimenList, String dimenXml) {
+    public ArrayList<DimenModel> parse(String xml) {
         isDataLoadingFailed = false;
+        ArrayList<DimenModel> list = new ArrayList<>();
+        notesMap.clear();
 
         try {
-            dimenList.clear();
-            notesMap.clear();
+            DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            Document doc = builder.parse(new InputSource(new StringReader(xml)));
 
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.parse(new InputSource(new StringReader(dimenXml)));
-            document.getDocumentElement().normalize();
+            NodeList nodes = doc.getDocumentElement().getChildNodes();
 
-            NodeList childNodes = document.getDocumentElement().getChildNodes();
-
-            for (int i = 0; i < childNodes.getLength(); i++) {
-                Node node = childNodes.item(i);
+            for (int i = 0; i < nodes.getLength(); i++) {
+                Node node = nodes.item(i);
 
                 if (node.getNodeType() == Node.COMMENT_NODE) {
-                    Comment comment = (Comment) node;
-                    notesMap.merge(dimenList.size(), comment.getNodeValue().trim(), (a, b) -> a + "\n" + b);
-                } else if (node.getNodeType() == Node.ELEMENT_NODE && "dimen".equals(node.getNodeName())) {
-                    Element element = (Element) node;
-                    String dimenName = element.getAttribute("name");
-                    String rawValue = element.getTextContent().trim().replace(" ", "");
+                    notesMap.put(list.size(), node.getNodeValue());
+                }
 
-                    Matcher matcher = DIMEN_PATTERN.matcher(rawValue);
-                    if (matcher.matches()) {
-                        dimenList.add(new DimenModel(
-                                dimenName,
-                                matcher.group(1),
-                                matcher.group(2).toLowerCase(Locale.US)
-                        ));
+                if (node.getNodeType() == Node.ELEMENT_NODE && node.getNodeName().equals("dimen")) {
+
+                    Element el = (Element) node;
+                    String name = el.getAttribute("name");
+                    String value = el.getTextContent().trim();
+
+                    Matcher m = pattern.matcher(value);
+
+                    if (m.matches()) {
+                        list.add(new DimenModel(name, m.group(1), m.group(2)));
                     } else {
-                        dimenList.add(new DimenModel(dimenName, rawValue, "dp"));
+                        list.add(new DimenModel(name, value, "dp"));
                     }
                 }
             }
+
         } catch (Exception e) {
-            isDataLoadingFailed = !dimenXml.trim().isEmpty();
+            isDataLoadingFailed = !xml.trim().isEmpty();
         }
+
+        return list;
     }
 
-    public String convertListToXml(ArrayList<DimenModel> dimenList, HashMap<Integer, String> notesMap) {
-        StringBuilder xmlBuilder = new StringBuilder();
-        xmlBuilder.append("<resources>\n");
+    public String build(ArrayList<DimenModel> list, HashMap<Integer, String> notes) {
+        StringBuilder sb = new StringBuilder("<resources>\n");
 
-        for (int i = 0; i < dimenList.size(); i++) {
-            if (notesMap.containsKey(i)) {
-                for (String comment : notesMap.get(i).split("\n")) {
-                    xmlBuilder.append("    <!-- ").append(comment).append(" -->\n");
-                }
+        for (int i = 0; i < list.size(); i++) {
+
+            if (notes.containsKey(i)) {
+                sb.append("    <!-- ").append(notes.get(i)).append(" -->\n");
             }
 
-            DimenModel dimenModel = dimenList.get(i);
-            xmlBuilder.append("    <dimen name=\"")
-                    .append(dimenModel.getDimenName())
+            DimenModel m = list.get(i);
+
+            sb.append("    <dimen name=\"")
+                    .append(m.getDimenName())
                     .append("\">")
-                    .append(dimenModel.getDimenValue())
-                    .append(dimenModel.getDimenUnit())
+                    .append(m.getDimenValue())
+                    .append(m.getDimenUnit())
                     .append("</dimen>\n");
         }
 
-        if (notesMap.containsKey(dimenList.size())) {
-            for (String comment : notesMap.get(dimenList.size()).split("\n")) {
-                xmlBuilder.append("    <!-- ").append(comment).append(" -->\n");
-            }
-        }
-
-        xmlBuilder.append("</resources>");
-        return xmlBuilder.toString();
+        sb.append("</resources>");
+        return sb.toString();
     }
 }
