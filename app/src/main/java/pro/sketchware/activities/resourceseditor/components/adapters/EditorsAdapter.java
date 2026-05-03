@@ -26,12 +26,12 @@ public class EditorsAdapter extends FragmentStateAdapter {
             case 4 -> activity.arraysEditor;
             case 5 -> activity.intsEditor;
             case 6 -> activity.dimensEditor;
-            default -> throw new IllegalArgumentException("Invalid position");
+            default -> throw new IllegalArgumentException("Invalid position: " + position);
         };
     }
 
     @Override
     public int getItemCount() {
-        return 6;
+        return 7; // IMPORTANT: total tabs (0–6)
     }
 }
