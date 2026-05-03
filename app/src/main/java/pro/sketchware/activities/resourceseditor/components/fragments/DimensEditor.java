@@ -5,24 +5,28 @@ import android.text.*;
 import android.view.*;
 import android.widget.*;
 
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.*;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 import pro.sketchware.activities.resourceseditor.ResourcesEditorActivity;
 import pro.sketchware.activities.resourceseditor.components.adapters.DimensAdapter;
 import pro.sketchware.activities.resourceseditor.components.models.DimenModel;
 import pro.sketchware.activities.resourceseditor.components.utils.DimensEditorManager;
 import pro.sketchware.databinding.ResourcesEditorFragmentBinding;
-import pro.sketchware.utility.*;
+import pro.sketchware.utility.FileUtil;
+import pro.sketchware.utility.SketchwareUtil;
+import pro.sketchware.utility.XmlUtil;
 
 public class DimensEditor extends Fragment {
 
     public ArrayList<DimenModel> list = new ArrayList<>();
-    public HashMap<Integer,String> notes = new HashMap<>();
+    public HashMap<Integer, String> notes = new HashMap<>();
 
     public DimensAdapter adapter;
     public DimensEditorManager manager = new DimensEditorManager();
@@ -30,66 +34,92 @@ public class DimensEditor extends Fragment {
     public boolean hasUnsavedChanges;
     public String path;
 
-    private ResourcesEditorActivity act;
-    private ResourcesEditorFragmentBinding bind;
+    private ResourcesEditorActivity activity;
+    private ResourcesEditorFragmentBinding binding;
 
     @Override
-    public void onCreate(Bundle b){
-        super.onCreate(b);
-        act = (ResourcesEditorActivity)getActivity();
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        activity = (ResourcesEditorActivity) getActivity();
     }
 
     @Override
-    public View onCreateView(LayoutInflater i, ViewGroup c, Bundle b){
-        bind = ResourcesEditorFragmentBinding.inflate(i,c,false);
-        return bind.getRoot();
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        binding = ResourcesEditorFragmentBinding.inflate(inflater, container, false);
+        return binding.getRoot();
     }
 
-    public void load(String path){
-        this.path = path;
+    // ✅ SAME STYLE AS OTHER EDITORS
+    public void updateDimensList(String filePath, int mode, boolean unsaved) {
+        this.path = filePath;
+        this.hasUnsavedChanges = unsaved;
 
-        list = manager.parse(FileUtil.readFileIfExist(path));
+        list = manager.parse(FileUtil.readFileIfExist(filePath));
         notes = manager.notesMap;
 
-        act.runOnUiThread(() -> {
-            adapter = new DimensAdapter(list, act, notes);
-            bind.recyclerView.setAdapter(adapter);
+        activity.runOnUiThread(() -> {
+            adapter = new DimensAdapter(list, activity, notes);
+            binding.recyclerView.setAdapter(adapter);
+            updateNoContentLayout();
         });
     }
 
-    public void showAdd(){
+    private void updateNoContentLayout() {
+        if (list.isEmpty()) {
+            binding.noContentLayout.setVisibility(View.VISIBLE);
+            binding.noContentTitle.setText("No Dimens");
+            binding.noContentBody.setText("Create a dimen resource");
+        } else {
+            binding.noContentLayout.setVisibility(View.GONE);
+        }
+    }
+
+    public void showAdd() {
         showEdit(-1);
     }
 
-    public void showEdit(int pos){
+    public void showEdit(int position) {
 
-        DimenModel m = pos >= 0 ? list.get(pos) : null;
+        DimenModel model = position >= 0 ? list.get(position) : null;
 
         LinearLayout root = new LinearLayout(getContext());
-        root.setOrientation(1);
-        root.setPadding(40,40,40,0);
+        root.setOrientation(LinearLayout.VERTICAL);
 
-        TextInputLayout nameL = new TextInputLayout(getContext(),null,
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        int gap = (int) (12 * getResources().getDisplayMetrics().density);
+
+        root.setPadding(pad, pad, pad, 0);
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, 0, 0, gap);
+
+        // Name
+        TextInputLayout nameLayout = new TextInputLayout(getContext(), null,
                 com.google.android.material.R.attr.textInputStyle);
-        nameL.setHint("Name");
+        nameLayout.setLayoutParams(params);
+        nameLayout.setHint("Dimen name");
 
-        TextInputEditText name = new TextInputEditText(nameL.getContext());
-        name.setSingleLine(true);
-        name.setFilters(new InputFilter[]{
-                (s,a,b,d,c,e)->s.toString().matches("[a-zA-Z0-9_]*")?null:""
+        TextInputEditText nameInput = new TextInputEditText(nameLayout.getContext());
+        nameInput.setSingleLine(true);
+        nameInput.setFilters(new InputFilter[]{
+                (s, a, b, d, c, e) -> s.toString().matches("[a-zA-Z0-9_]*") ? null : ""
         });
-        nameL.addView(name);
+        nameLayout.addView(nameInput);
 
-        TextInputLayout valL = new TextInputLayout(getContext(),null,
+        // Value
+        TextInputLayout valueLayout = new TextInputLayout(getContext(), null,
                 com.google.android.material.R.attr.textInputStyle);
-        valL.setHint("Value");
+        valueLayout.setLayoutParams(params);
+        valueLayout.setHint("Value");
 
-        TextInputEditText val = new TextInputEditText(valL.getContext());
-        val.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        valL.addView(val);
+        TextInputEditText valueInput = new TextInputEditText(valueLayout.getContext());
+        valueInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        valueLayout.addView(valueInput);
 
-        RadioGroup rg = new RadioGroup(getContext());
-        rg.setOrientation(0);
+        // Unit selector
+        RadioGroup group = new RadioGroup(getContext());
+        group.setLayoutParams(params);
+        group.setOrientation(LinearLayout.HORIZONTAL);
 
         RadioButton dp = new RadioButton(getContext());
         dp.setText("dp");
@@ -97,70 +127,86 @@ public class DimensEditor extends Fragment {
         RadioButton sp = new RadioButton(getContext());
         sp.setText("sp");
 
-        rg.addView(dp);
-        rg.addView(sp);
+        group.addView(dp);
+        group.addView(sp);
 
+        // Live preview
         TextView preview = new TextView(getContext());
+        preview.setLayoutParams(params);
 
-        val.addTextChangedListener(new TextWatcher() {
-            public void afterTextChanged(Editable e){
-                String v = e.toString();
-                String u = sp.isChecked()?"sp":"dp";
-                preview.setText(v.isEmpty()?"":v+u);
+        TextWatcher watcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
+
+            @Override
+            public void afterTextChanged(Editable e) {
+                String val = e.toString();
+                String unit = sp.isChecked() ? "sp" : "dp";
+                preview.setText(val.isEmpty() ? "" : val + unit);
             }
-            public void beforeTextChanged(CharSequence s,int a,int b,int c){}
-            public void onTextChanged(CharSequence s,int a,int b,int c){}
+        };
+
+        valueInput.addTextChangedListener(watcher);
+
+        group.setOnCheckedChangeListener((g, id) -> {
+            String val = valueInput.getText().toString();
+            String unit = sp.isChecked() ? "sp" : "dp";
+            preview.setText(val.isEmpty() ? "" : val + unit);
         });
 
-        rg.setOnCheckedChangeListener((g,id)->{
-            preview.setText(val.getText()+" "+(sp.isChecked()?"sp":"dp"));
-        });
+        // Prefill
+        if (model != null) {
+            nameInput.setText(model.getDimenName());
+            valueInput.setText(model.getDimenValue());
 
-        root.addView(nameL);
-        root.addView(valL);
-        root.addView(rg);
+            if ("sp".equals(model.getDimenUnit())) {
+                sp.setChecked(true);
+            } else {
+                dp.setChecked(true);
+            }
+        } else {
+            dp.setChecked(true);
+        }
+
+        root.addView(nameLayout);
+        root.addView(valueLayout);
+        root.addView(group);
         root.addView(preview);
 
-        if(m!=null){
-            name.setText(m.getDimenName());
-            val.setText(m.getDimenValue());
-            if("sp".equals(m.getDimenUnit())) sp.setChecked(true);
-            else dp.setChecked(true);
-        } else dp.setChecked(true);
-
         new MaterialAlertDialogBuilder(getContext())
-                .setTitle(m==null?"Create dimen":"Edit dimen")
+                .setTitle(model == null ? "Create dimen" : "Edit dimen")
                 .setView(root)
-                .setPositiveButton("Save",(d,w)->{
+                .setPositiveButton("Save", (d, w) -> {
 
-                    String n=name.getText().toString();
-                    String v=val.getText().toString();
-                    String u=sp.isChecked()?"sp":"dp";
+                    String name = nameInput.getText().toString().trim();
+                    String value = valueInput.getText().toString().trim();
+                    String unit = sp.isChecked() ? "sp" : "dp";
 
-                    if(n.isEmpty()||v.isEmpty()){
-                        SketchwareUtil.toastError("Fill all");
+                    if (name.isEmpty() || value.isEmpty()) {
+                        SketchwareUtil.toastError("Fill all fields");
                         return;
                     }
 
-                    if(m!=null){
-                        m.setDimenName(n);
-                        m.setDimenValue(v);
-                        m.setDimenUnit(u);
-                    }else{
-                        list.add(new DimenModel(n,v,u));
+                    if (model != null) {
+                        model.setDimenName(name);
+                        model.setDimenValue(value);
+                        model.setDimenUnit(unit);
+                    } else {
+                        list.add(new DimenModel(name, value, unit));
                     }
 
                     adapter.notifyDataSetChanged();
-                    hasUnsavedChanges=true;
+                    hasUnsavedChanges = true;
+                    updateNoContentLayout();
                 })
-                .setNegativeButton("Cancel",null)
+                .setNegativeButton("Cancel", null)
                 .show();
     }
 
-    public void save(){
-        if(hasUnsavedChanges){
-            XmlUtil.saveXml(path, manager.build(list,notes));
-            hasUnsavedChanges=false;
+    public void save() {
+        if (hasUnsavedChanges) {
+            XmlUtil.saveXml(path, manager.build(list, notes));
+            hasUnsavedChanges = false;
         }
     }
 }
