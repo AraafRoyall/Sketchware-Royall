@@ -2,37 +2,37 @@ package pro.sketchware.activities.resourceseditor.components.models;
 
 public class DimenModel {
 
-    private String dimenName;
-    private String dimenValue;
-    private String dimenUnit;
+    private String name;
+    private String value;
+    private String unit;
 
     public DimenModel(String name, String value, String unit) {
-        this.dimenName = name;
-        this.dimenValue = value;
-        this.dimenUnit = unit;
+        this.name = name;
+        this.value = value;
+        this.unit = unit;
     }
 
     public String getDimenName() {
-        return dimenName;
+        return name;
     }
 
-    public void setDimenName(String dimenName) {
-        this.dimenName = dimenName;
+    public void setDimenName(String name) {
+        this.name = name;
     }
 
     public String getDimenValue() {
-        return dimenValue;
+        return value;
     }
 
-    public void setDimenValue(String dimenValue) {
-        this.dimenValue = dimenValue;
+    public void setDimenValue(String value) {
+        this.value = value;
     }
 
     public String getDimenUnit() {
-        return dimenUnit;
+        return unit;
     }
 
-    public void setDimenUnit(String dimenUnit) {
-        this.dimenUnit = dimenUnit;
+    public void setDimenUnit(String unit) {
+        this.unit = unit;
     }
 }
