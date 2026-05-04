@@ -1,101 +1,180 @@
-package pro.sketchware.activities.resourceseditor.components.adapters;
+package pro.sketchware.activities.resourceseditor.components.fragments;
 
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
+import android.os.Bundle;
+import android.text.*;
+import android.view.*;
+import android.widget.*;
 
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
+import androidx.fragment.app.Fragment;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.*;
+
+import java.util.*;
 
 import pro.sketchware.activities.resourceseditor.ResourcesEditorActivity;
+import pro.sketchware.activities.resourceseditor.components.adapters.DimensAdapter;
 import pro.sketchware.activities.resourceseditor.components.models.DimenModel;
-import pro.sketchware.databinding.PalletCustomviewBinding;
+import pro.sketchware.activities.resourceseditor.components.utils.DimensEditorManager;
+import pro.sketchware.databinding.ResourcesEditorFragmentBinding;
+import pro.sketchware.utility.*;
 
-public class DimensAdapter extends RecyclerView.Adapter<DimensAdapter.ViewHolder> {
+public class DimensEditor extends Fragment {
 
-    private final ArrayList<DimenModel> originalData; // full list
-    private final ArrayList<DimenModel> data;         // filtered list
-    private final HashMap<Integer, String> notesMap;
-    private final ResourcesEditorActivity activity;
+    public ArrayList<DimenModel> list = new ArrayList<>();
+    public HashMap<Integer,String> notes = new HashMap<>();
 
-    public DimensAdapter(ArrayList<DimenModel> data,
-                         ResourcesEditorActivity activity,
-                         HashMap<Integer, String> notesMap) {
+    public DimensAdapter adapter;
+    public DimensEditorManager manager = new DimensEditorManager();
 
-        this.originalData = new ArrayList<>(data);
-        this.data = data;
-        this.activity = activity;
-        this.notesMap = notesMap;
-    }
+    public boolean hasUnsavedChanges;
+    public String path;
 
-    @NonNull
+    private ResourcesEditorActivity activity;
+    private ResourcesEditorFragmentBinding binding;
+
     @Override
-    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        PalletCustomviewBinding binding = PalletCustomviewBinding.inflate(
-                LayoutInflater.from(parent.getContext()), parent, false
-        );
-        return new ViewHolder(binding);
+    public void onCreate(Bundle b){
+        super.onCreate(b);
+        activity = (ResourcesEditorActivity)getActivity();
     }
 
     @Override
-    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+    public View onCreateView(LayoutInflater i, ViewGroup c, Bundle b){
+        binding = ResourcesEditorFragmentBinding.inflate(i,c,false);
+        return binding.getRoot();
+    }
 
-        DimenModel model = data.get(position);
+    public void updateDimensList(String filePath, int mode, boolean unsaved){
+        path = filePath;
+        hasUnsavedChanges = unsaved;
 
-        holder.binding.title.setText(model.getDimenName());
-        holder.binding.sub.setText(model.getDimenValue() + model.getDimenUnit());
+        list = manager.parse(FileUtil.readFileIfExist(filePath));
+        notes = manager.notesMap;
 
-        // notes
-        int originalIndex = originalData.indexOf(model);
-        if (originalIndex >= 0 && notesMap.containsKey(originalIndex)) {
-            holder.binding.tvTitle.setText(notesMap.get(originalIndex));
-            holder.binding.tvTitle.setVisibility(View.VISIBLE);
+        activity.runOnUiThread(() -> {
+            adapter = new DimensAdapter(list, activity, notes);
+            binding.recyclerView.setAdapter(adapter);
+            updateNoContentLayout();
+        });
+    }
+
+    private void updateNoContentLayout(){
+        if(list.isEmpty()){
+            binding.noContentLayout.setVisibility(View.VISIBLE);
+            binding.noContentTitle.setText("No Dimens");
+            binding.noContentBody.setText("Create a dimen");
         } else {
-            holder.binding.tvTitle.setVisibility(View.GONE);
+            binding.noContentLayout.setVisibility(View.GONE);
         }
-
-        holder.binding.color.setVisibility(View.GONE);
-
-        holder.binding.backgroundCard.setOnClickListener(v ->
-                activity.dimensEditor.showEdit(position)
-        );
     }
 
-    @Override
-    public int getItemCount() {
-        return data.size();
+    public void showAdd(){
+        showEdit(-1);
     }
 
-    // ✅ SAFE FILTER (no data loss)
-    public void filter(String text) {
+    public void showEdit(int pos){
 
-        data.clear();
+        DimenModel m = pos>=0 ? list.get(pos) : null;
 
-        if (text == null || text.isEmpty()) {
-            data.addAll(originalData);
-        } else {
-            text = text.toLowerCase();
+        LinearLayout root = new LinearLayout(getContext());
+        root.setOrientation(1);
+        root.setPadding(40,40,40,0);
 
-            for (DimenModel m : originalData) {
-                if (m.getDimenName().toLowerCase().contains(text)
-                        || (m.getDimenValue() + m.getDimenUnit()).toLowerCase().contains(text)) {
-                    data.add(m);
-                }
+        TextInputLayout nameL = new TextInputLayout(getContext(),null,
+                com.google.android.material.R.attr.textInputStyle);
+        nameL.setHint("Name");
+
+        TextInputEditText name = new TextInputEditText(nameL.getContext());
+        name.setSingleLine(true);
+        name.setFilters(new InputFilter[]{
+                (s,a,b,d,c,e)->s.toString().matches("[a-zA-Z0-9_]*")?null:""
+        });
+        nameL.addView(name);
+
+        TextInputLayout valL = new TextInputLayout(getContext(),null,
+                com.google.android.material.R.attr.textInputStyle);
+        valL.setHint("Value");
+
+        TextInputEditText val = new TextInputEditText(valL.getContext());
+        val.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        valL.addView(val);
+
+        RadioGroup rg = new RadioGroup(getContext());
+        rg.setOrientation(0);
+
+        RadioButton dp = new RadioButton(getContext());
+        dp.setText("dp");
+
+        RadioButton sp = new RadioButton(getContext());
+        sp.setText("sp");
+
+        rg.addView(dp);
+        rg.addView(sp);
+
+        TextView preview = new TextView(getContext());
+
+        val.addTextChangedListener(new TextWatcher(){
+            public void afterTextChanged(Editable e){
+                String v=e.toString();
+                String u=sp.isChecked()?"sp":"dp";
+                preview.setText(v.isEmpty()?"":v+u);
             }
-        }
+            public void beforeTextChanged(CharSequence s,int a,int b,int c){}
+            public void onTextChanged(CharSequence s,int a,int b,int c){}
+        });
 
-        notifyDataSetChanged();
+        rg.setOnCheckedChangeListener((g,id)->{
+            String v=val.getText().toString();
+            String u=sp.isChecked()?"sp":"dp";
+            preview.setText(v.isEmpty()?"":v+u);
+        });
+
+        if(m!=null){
+            name.setText(m.getDimenName());
+            val.setText(m.getDimenValue());
+            if("sp".equals(m.getDimenUnit())) sp.setChecked(true);
+            else dp.setChecked(true);
+        } else dp.setChecked(true);
+
+        root.addView(nameL);
+        root.addView(valL);
+        root.addView(rg);
+        root.addView(preview);
+
+        new MaterialAlertDialogBuilder(getContext())
+        .setTitle(m==null?"Create dimen":"Edit dimen")
+        .setView(root)
+        .setPositiveButton("Save",(d,w)->{
+
+            String n=name.getText().toString();
+            String v=val.getText().toString();
+            String u=sp.isChecked()?"sp":"dp";
+
+            if(n.isEmpty()||v.isEmpty()){
+                SketchwareUtil.toastError("Fill all");
+                return;
+            }
+
+            if(m!=null){
+                m.setDimenName(n);
+                m.setDimenValue(v);
+                m.setDimenUnit(u);
+            } else {
+                list.add(new DimenModel(n,v,u));
+            }
+
+            adapter.notifyDataSetChanged();
+            hasUnsavedChanges=true;
+        })
+        .setNegativeButton("Cancel",null)
+        .show();
     }
 
-    public static class ViewHolder extends RecyclerView.ViewHolder {
-        public PalletCustomviewBinding binding;
-
-        public ViewHolder(PalletCustomviewBinding binding) {
-            super(binding.getRoot());
-            this.binding = binding;
+    public void save(){
+        if(hasUnsavedChanges){
+            XmlUtil.saveXml(path, manager.build(list,notes));
+            hasUnsavedChanges=false;
         }
     }
 }
