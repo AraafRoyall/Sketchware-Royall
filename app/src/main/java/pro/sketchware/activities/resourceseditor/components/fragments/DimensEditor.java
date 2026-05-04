@@ -1,212 +1,101 @@
-package pro.sketchware.activities.resourceseditor.components.fragments;
+package pro.sketchware.activities.resourceseditor.components.adapters;
 
-import android.os.Bundle;
-import android.text.*;
-import android.view.*;
-import android.widget.*;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.textfield.*;
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 
 import pro.sketchware.activities.resourceseditor.ResourcesEditorActivity;
-import pro.sketchware.activities.resourceseditor.components.adapters.DimensAdapter;
 import pro.sketchware.activities.resourceseditor.components.models.DimenModel;
-import pro.sketchware.activities.resourceseditor.components.utils.DimensEditorManager;
-import pro.sketchware.databinding.ResourcesEditorFragmentBinding;
-import pro.sketchware.utility.FileUtil;
-import pro.sketchware.utility.SketchwareUtil;
-import pro.sketchware.utility.XmlUtil;
+import pro.sketchware.databinding.PalletCustomviewBinding;
 
-public class DimensEditor extends Fragment {
+public class DimensAdapter extends RecyclerView.Adapter<DimensAdapter.ViewHolder> {
 
-    public ArrayList<DimenModel> list = new ArrayList<>();
-    public HashMap<Integer, String> notes = new HashMap<>();
+    private final ArrayList<DimenModel> originalData; // full list
+    private final ArrayList<DimenModel> data;         // filtered list
+    private final HashMap<Integer, String> notesMap;
+    private final ResourcesEditorActivity activity;
 
-    public DimensAdapter adapter;
-    public DimensEditorManager manager = new DimensEditorManager();
+    public DimensAdapter(ArrayList<DimenModel> data,
+                         ResourcesEditorActivity activity,
+                         HashMap<Integer, String> notesMap) {
 
-    public boolean hasUnsavedChanges;
-    public String path;
+        this.originalData = new ArrayList<>(data);
+        this.data = data;
+        this.activity = activity;
+        this.notesMap = notesMap;
+    }
 
-    private ResourcesEditorActivity activity;
-    private ResourcesEditorFragmentBinding binding;
+    @NonNull
+    @Override
+    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        PalletCustomviewBinding binding = PalletCustomviewBinding.inflate(
+                LayoutInflater.from(parent.getContext()), parent, false
+        );
+        return new ViewHolder(binding);
+    }
 
     @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        activity = (ResourcesEditorActivity) getActivity();
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+
+        DimenModel model = data.get(position);
+
+        holder.binding.title.setText(model.getDimenName());
+        holder.binding.sub.setText(model.getDimenValue() + model.getDimenUnit());
+
+        // notes
+        int originalIndex = originalData.indexOf(model);
+        if (originalIndex >= 0 && notesMap.containsKey(originalIndex)) {
+            holder.binding.tvTitle.setText(notesMap.get(originalIndex));
+            holder.binding.tvTitle.setVisibility(View.VISIBLE);
+        } else {
+            holder.binding.tvTitle.setVisibility(View.GONE);
+        }
+
+        holder.binding.color.setVisibility(View.GONE);
+
+        holder.binding.backgroundCard.setOnClickListener(v ->
+                activity.dimensEditor.showEdit(position)
+        );
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        binding = ResourcesEditorFragmentBinding.inflate(inflater, container, false);
-        return binding.getRoot();
+    public int getItemCount() {
+        return data.size();
     }
 
-    // ✅ SAME STYLE AS OTHER EDITORS
-    public void updateDimensList(String filePath, int mode, boolean unsaved) {
-        this.path = filePath;
-        this.hasUnsavedChanges = unsaved;
+    // ✅ SAFE FILTER (no data loss)
+    public void filter(String text) {
 
-        list = manager.parse(FileUtil.readFileIfExist(filePath));
-        notes = manager.notesMap;
+        data.clear();
 
-        activity.runOnUiThread(() -> {
-            adapter = new DimensAdapter(list, activity, notes);
-            binding.recyclerView.setAdapter(adapter);
-            updateNoContentLayout();
-        });
-    }
-
-    private void updateNoContentLayout() {
-        if (list.isEmpty()) {
-            binding.noContentLayout.setVisibility(View.VISIBLE);
-            binding.noContentTitle.setText("No Dimens");
-            binding.noContentBody.setText("Create a dimen resource");
+        if (text == null || text.isEmpty()) {
+            data.addAll(originalData);
         } else {
-            binding.noContentLayout.setVisibility(View.GONE);
-        }
-    }
+            text = text.toLowerCase();
 
-    public void showAdd() {
-        showEdit(-1);
-    }
-
-    public void showEdit(int position) {
-
-        DimenModel model = position >= 0 ? list.get(position) : null;
-
-        LinearLayout root = new LinearLayout(getContext());
-        root.setOrientation(LinearLayout.VERTICAL);
-
-        int pad = (int) (20 * getResources().getDisplayMetrics().density);
-        int gap = (int) (12 * getResources().getDisplayMetrics().density);
-
-        root.setPadding(pad, pad, pad, 0);
-
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
-        params.setMargins(0, 0, 0, gap);
-
-        // Name
-        TextInputLayout nameLayout = new TextInputLayout(getContext(), null,
-                com.google.android.material.R.attr.textInputStyle);
-        nameLayout.setLayoutParams(params);
-        nameLayout.setHint("Dimen name");
-
-        TextInputEditText nameInput = new TextInputEditText(nameLayout.getContext());
-        nameInput.setSingleLine(true);
-        nameInput.setFilters(new InputFilter[]{
-                (s, a, b, d, c, e) -> s.toString().matches("[a-zA-Z0-9_]*") ? null : ""
-        });
-        nameLayout.addView(nameInput);
-
-        // Value
-        TextInputLayout valueLayout = new TextInputLayout(getContext(), null,
-                com.google.android.material.R.attr.textInputStyle);
-        valueLayout.setLayoutParams(params);
-        valueLayout.setHint("Value");
-
-        TextInputEditText valueInput = new TextInputEditText(valueLayout.getContext());
-        valueInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        valueLayout.addView(valueInput);
-
-        // Unit selector
-        RadioGroup group = new RadioGroup(getContext());
-        group.setLayoutParams(params);
-        group.setOrientation(LinearLayout.HORIZONTAL);
-
-        RadioButton dp = new RadioButton(getContext());
-        dp.setText("dp");
-
-        RadioButton sp = new RadioButton(getContext());
-        sp.setText("sp");
-
-        group.addView(dp);
-        group.addView(sp);
-
-        // Live preview
-        TextView preview = new TextView(getContext());
-        preview.setLayoutParams(params);
-
-        TextWatcher watcher = new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
-            @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
-
-            @Override
-            public void afterTextChanged(Editable e) {
-                String val = e.toString();
-                String unit = sp.isChecked() ? "sp" : "dp";
-                preview.setText(val.isEmpty() ? "" : val + unit);
+            for (DimenModel m : originalData) {
+                if (m.getDimenName().toLowerCase().contains(text)
+                        || (m.getDimenValue() + m.getDimenUnit()).toLowerCase().contains(text)) {
+                    data.add(m);
+                }
             }
-        };
-
-        valueInput.addTextChangedListener(watcher);
-
-        group.setOnCheckedChangeListener((g, id) -> {
-            String val = valueInput.getText().toString();
-            String unit = sp.isChecked() ? "sp" : "dp";
-            preview.setText(val.isEmpty() ? "" : val + unit);
-        });
-
-        // Prefill
-        if (model != null) {
-            nameInput.setText(model.getDimenName());
-            valueInput.setText(model.getDimenValue());
-
-            if ("sp".equals(model.getDimenUnit())) {
-                sp.setChecked(true);
-            } else {
-                dp.setChecked(true);
-            }
-        } else {
-            dp.setChecked(true);
         }
 
-        root.addView(nameLayout);
-        root.addView(valueLayout);
-        root.addView(group);
-        root.addView(preview);
-
-        new MaterialAlertDialogBuilder(getContext())
-                .setTitle(model == null ? "Create dimen" : "Edit dimen")
-                .setView(root)
-                .setPositiveButton("Save", (d, w) -> {
-
-                    String name = nameInput.getText().toString().trim();
-                    String value = valueInput.getText().toString().trim();
-                    String unit = sp.isChecked() ? "sp" : "dp";
-
-                    if (name.isEmpty() || value.isEmpty()) {
-                        SketchwareUtil.toastError("Fill all fields");
-                        return;
-                    }
-
-                    if (model != null) {
-                        model.setDimenName(name);
-                        model.setDimenValue(value);
-                        model.setDimenUnit(unit);
-                    } else {
-                        list.add(new DimenModel(name, value, unit));
-                    }
-
-                    adapter.notifyDataSetChanged();
-                    hasUnsavedChanges = true;
-                    updateNoContentLayout();
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+        notifyDataSetChanged();
     }
 
-    public void save() {
-        if (hasUnsavedChanges) {
-            XmlUtil.saveXml(path, manager.build(list, notes));
-            hasUnsavedChanges = false;
+    public static class ViewHolder extends RecyclerView.ViewHolder {
+        public PalletCustomviewBinding binding;
+
+        public ViewHolder(PalletCustomviewBinding binding) {
+            super(binding.getRoot());
+            this.binding = binding;
         }
     }
 }
