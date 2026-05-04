@@ -12,14 +12,17 @@ import pro.sketchware.databinding.PalletCustomviewBinding;
 
 public class DimensAdapter extends RecyclerView.Adapter<DimensAdapter.VH> {
 
+    private final ArrayList<DimenModel> original;
     private final ArrayList<DimenModel> data;
-    private final ResourcesEditorActivity activity;
     private final HashMap<Integer, String> notes;
+    private final ResourcesEditorActivity activity;
 
-    public DimensAdapter(ArrayList<DimenModel> data,
+    public DimensAdapter(ArrayList<DimenModel> list,
                          ResourcesEditorActivity act,
                          HashMap<Integer, String> notes) {
-        this.data = data;
+
+        this.original = new ArrayList<>(list);
+        this.data = list;
         this.activity = act;
         this.notes = notes;
     }
@@ -36,10 +39,12 @@ public class DimensAdapter extends RecyclerView.Adapter<DimensAdapter.VH> {
         DimenModel m = data.get(pos);
 
         h.b.title.setText(m.getDimenName());
-        h.b.sub.setText(m.getDimenValue() + m.getDimenUnit()); // preview
+        h.b.sub.setText(m.getDimenValue() + m.getDimenUnit());
 
-        if (notes.containsKey(pos)) {
-            h.b.tvTitle.setText(notes.get(pos));
+        int index = original.indexOf(m);
+
+        if (index >= 0 && notes.containsKey(index)) {
+            h.b.tvTitle.setText(notes.get(index));
             h.b.tvTitle.setVisibility(View.VISIBLE);
         } else {
             h.b.tvTitle.setVisibility(View.GONE);
@@ -54,6 +59,27 @@ public class DimensAdapter extends RecyclerView.Adapter<DimensAdapter.VH> {
     @Override
     public int getItemCount() {
         return data.size();
+    }
+
+    // ✅ REQUIRED for search
+    public void filter(String text) {
+
+        data.clear();
+
+        if (text == null || text.isEmpty()) {
+            data.addAll(original);
+        } else {
+            text = text.toLowerCase();
+
+            for (DimenModel m : original) {
+                if (m.getDimenName().toLowerCase().contains(text)
+                        || (m.getDimenValue() + m.getDimenUnit()).toLowerCase().contains(text)) {
+                    data.add(m);
+                }
+            }
+        }
+
+        notifyDataSetChanged();
     }
 
     static class VH extends RecyclerView.ViewHolder {
