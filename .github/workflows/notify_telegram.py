@@ -17,25 +17,15 @@ def escape_markdown_v2(text):
 def escape_parentheses(text):
     return re.sub(r'([()])', r'\\\1', text)
 
-# ✅ Branch → Topic mapping (clean version)
-BRANCH_TOPIC_MAP = {
-    "main": 3,
-    "beta": 7,
-    "alpha": 14,
-}
-
-def get_topic_for_branch():
-    branch = os.environ.get("GITHUB_REF_NAME", "")
-    return BRANCH_TOPIC_MAP.get(branch)
-
 def main():
     bot_token = os.environ['BOT_TOKEN']
     chat_id = os.environ['CHAT_ID']
-    topic_id = get_topic_for_branch()
+
+    # ✅ Always send to topic 14
+    topic_id = 14
 
     commit_author, commit_message, commit_hash, commit_hash_short = get_git_commit_info()
 
-    # 🔁 SAME MESSAGE FORMAT (unchanged)
     message = (
         f"A new [commit](https://github.com/Sketchware-Royall/Sketchware-Royall/commit/{commit_hash}) "
         f"has been merged to the repository by *{commit_author}*.\n\n"
@@ -50,13 +40,11 @@ def main():
 
     payload = {
         "chat_id": chat_id,
+        "message_thread_id": topic_id,
         "text": escaped_message,
         "parse_mode": "MarkdownV2",
         "disable_web_page_preview": True
     }
-
-    if topic_id:
-        payload["message_thread_id"] = topic_id
 
     try:
         response = requests.post(url, json=payload)
@@ -68,7 +56,6 @@ def main():
 
     except Exception as e:
         print("Error:", e)
-
 
 if __name__ == "__main__":
     main()
