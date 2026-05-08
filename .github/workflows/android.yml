@@ -27,7 +27,7 @@ jobs:
 
       - name: Set Topic ID
         run: |
-          echo "TOPIC_ID=14" >> $GITHUB_ENV
+          echo "TOPIC_NO=14" >> $GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -41,7 +41,7 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TOPIC_ID: ${{ env.TOPIC_ID }}
+          TOPIC_NO: ${{ env.TOPIC_NO }}
         run: python ./.github/workflows/notify_telegram.py
         continue-on-error: true
 
@@ -104,7 +104,7 @@ jobs:
 
       - name: Set Topic ID
         run: |
-          echo "TOPIC_ID=14" >> $GITHUB_ENV
+          echo "TOPIC_NO=14" >> $GITHUB_ENV
 
       - name: Download APK
         uses: actions/download-artifact@v8
@@ -130,7 +130,7 @@ jobs:
           API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TOPIC_ID: ${{ env.TOPIC_ID }}
+          TOPIC_NO: ${{ env.TOPIC_NO }}
           APK_PATH: ${{ env.APK_PATH }}
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: python ./.github/workflows/deploy_artifacts.py
