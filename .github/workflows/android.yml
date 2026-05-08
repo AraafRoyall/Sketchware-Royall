@@ -20,18 +20,14 @@ jobs:
   notifyTelegram:
     name: Notify Telegram
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.repository == 'Sketchware-Royall/Sketchware-Royall' && github.ref == 'refs/heads/main'
 
     steps:
       - uses: actions/checkout@v6
 
       - name: Set Topic ID
         run: |
-          if [ "${{ github.repository }}" = "Sketchware-Royall/Sketchware-Royall" ]; then
-            echo "TOPIC_ID=14" >> $GITHUB_ENV
-          else
-            echo "TOPIC_ID=3" >> $GITHUB_ENV
-          fi
+          echo "TOPIC_ID=14" >> $GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -98,19 +94,17 @@ jobs:
   send:
     name: Send to Telegram
     runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'
+    needs:
+      - build
+      - notifyTelegram
+    if: github.repository == 'Sketchware-Royall/Sketchware-Royall' && github.ref == 'refs/heads/main'
 
     steps:
       - uses: actions/checkout@v6
 
       - name: Set Topic ID
         run: |
-          if [ "${{ github.repository }}" = "AraafRoyall/sketchware-Royall" ]; then
-            echo "TOPIC_ID=14" >> $GITHUB_ENV
-          else
-            echo "TOPIC_ID=3" >> $GITHUB_ENV
-          fi
+          echo "TOPIC_ID=14" >> $GITHUB_ENV
 
       - name: Download APK
         uses: actions/download-artifact@v8
