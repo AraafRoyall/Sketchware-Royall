@@ -22,7 +22,7 @@ def main():
     chat_id = os.environ['CHAT_ID']
 
     # ✅ Always send to topic 14
-    topic_id = 14
+    topic_id = 3
 
     commit_author, commit_message, commit_hash, commit_hash_short = get_git_commit_info()
 
