@@ -13,7 +13,7 @@ api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 bot_token = os.getenv("BOT_TOKEN")
 chat_id = int(os.getenv("CHAT_ID"))
-topic_id = os.getenv("TOPIC_ID")
+topic_id = os.getenv("TOPIC_NO")
 apk_path = os.getenv("APK_PATH")
 run_number = os.getenv("GITHUB_RUN_NUMBER")
 
