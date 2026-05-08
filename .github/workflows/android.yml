@@ -41,7 +41,6 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TOPIC_ID: ${{ env.TOPIC_ID }}
         run: python ./.github/workflows/notify_telegram.py
         continue-on-error: true
 
