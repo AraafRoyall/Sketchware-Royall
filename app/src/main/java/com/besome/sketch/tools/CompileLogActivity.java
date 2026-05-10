@@ -69,7 +69,7 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 		b.copyButton.setEnabled(hasLog());
 		b.copyButton.setOnClickListener(v -> copy());
         
-        setupScrollBars();
+        
 	}
 	
 	private boolean hasLog() {
@@ -268,21 +268,5 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 		}
 	}
     
-   private void setupScrollBars() {
-	try {
-
-		b.errVScroll.setVerticalScrollBarEnabled(true);
-		b.errVScroll.setScrollbarFadingEnabled(false);
-		b.errVScroll.setScrollBarDefaultDelayBeforeFade(0);
-
-		b.errHScroll.setHorizontalScrollBarEnabled(true);
-		b.errHScroll.setScrollbarFadingEnabled(false);
-		b.errHScroll.setScrollBarDefaultDelayBeforeFade(0);
-
-	} catch (Exception e) {
-		SketchwareUtil.toastError(
-				"ScrollBar setup failed: " + e.toString());
-	}
-   }
-    
+   
 }
