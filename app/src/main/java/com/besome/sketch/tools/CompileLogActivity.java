@@ -68,8 +68,6 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 		
 		b.copyButton.setEnabled(hasLog());
 		b.copyButton.setOnClickListener(v -> copy());
-        
-        
 	}
 	
 	private boolean hasLog() {
@@ -267,6 +265,4 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 			SketchwareUtil.toastError("Copy failed: " + ex.toString());
 		}
 	}
-    
-   
 }
