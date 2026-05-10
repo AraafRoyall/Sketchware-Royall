@@ -68,6 +68,7 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 		
 		b.copyButton.setEnabled(hasLog());
 		b.copyButton.setOnClickListener(v -> copy());
+		
 	}
 	
 	private boolean hasLog() {
@@ -112,7 +113,7 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 				yield true;
 			}
 			case 2 -> {
-				format();
+				format(findViewById(it.getItemId()));
 				yield true;
 			}
 			default -> super.onOptionsItemSelected(it);
@@ -155,8 +156,8 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 		}
 	}
 	
-	private void format() {
-		PopupMenu p = new PopupMenu(this, b.topAppBar);
+	private void format(View anchor) {
+		PopupMenu p = new PopupMenu(this, anchor);
 		
 		p.getMenu().add("Wrap text")
 		.setCheckable(true)
@@ -170,9 +171,11 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 		
 		p.setOnMenuItemClickListener(it -> {
 			String t = it.getTitle().toString();
+			
 			if ("Wrap text".equals(t)) wrap(it);
 			else if ("Monospaced font".equals(t)) mono(it);
 			else size();
+			
 			return true;
 		});
 		
@@ -265,4 +268,6 @@ public class CompileLogActivity extends BaseAppCompatActivity {
 			SketchwareUtil.toastError("Copy failed: " + ex.toString());
 		}
 	}
+	
+	
 }
