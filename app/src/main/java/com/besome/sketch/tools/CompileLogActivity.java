@@ -13,7 +13,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.besome.sketch.lib.base.BaseAppCompatActivity;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
-import mod.hey.studios.util.Helper;
+import mod.hey.studios.util.*;
 import mod.jbk.diagnostic.CompileErrorSaver;
 import mod.jbk.util.AddMarginOnApplyWindowInsetsListener;
 import pro.sketchware.R;
