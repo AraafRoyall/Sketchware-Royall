@@ -1016,9 +1016,8 @@ public class ExtraMenuBean {
 		
 		String base = getBaseType(type);
 		
-		return base.endsWith("ArrayList")
-		|| base.endsWith("List")
-		|| base.endsWith("LinkedList");
+		return (base.endsWith("ArrayList") || base.endsWith("List") || base.endsWith("LinkedList"))
+		&& !type.contains("HashMap");
 	}
 	
 	private static boolean isUriType(String type) {
@@ -1188,22 +1187,29 @@ public class ExtraMenuBean {
 	}
 	private static boolean matchesListType(String type, int listType) {
 		if (type == null) return false;
+		
+		String base = getBaseType(type);
+		
+		// real Java lists only
 		if (!isRealList(type)) return false;
-		
-		String itemType = getFirstGenericArg(type);
-		if (itemType.isEmpty()) return false;
-		
-		itemType = unwrapArrayType(itemType);
 		
 		switch (listType) {
 			case LIST_TYPE_STRING:
-			return isStringType(itemType);
+			return type.contains("String")
+			|| type.contains("CharSequence");
 			
 			case LIST_TYPE_NUMBER:
-			return isNumberType(itemType);
+			return type.contains("Double")
+			|| type.contains("Integer")
+			|| type.contains("Float")
+			|| type.contains("Long")
+			|| type.contains("Short")
+			|| type.contains("Byte");
 			
 			case LIST_TYPE_MAP:
-			return isRealMap(itemType);
+			return (type.contains("HashMap") || type.contains("Map"))
+			&& type.contains("String")
+			&& (type.contains("Object") || type.contains("java.lang.Object"));
 		}
 		
 		return false;
