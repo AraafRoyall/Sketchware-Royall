@@ -884,7 +884,7 @@ public class ExtraMenuBean {
 	}
 	
 	
-	//
+	
 	private static String normalizeType(String type) {
 		if (type == null) return "";
 		return type.replace(" ", "").trim();
@@ -905,6 +905,65 @@ public class ExtraMenuBean {
 		
 		int dot = type.lastIndexOf('.');
 		return dot != -1 ? type.substring(dot + 1) : type;
+	}
+	
+	private static boolean isArrayType(String type) {
+		if (type == null) return false;
+		return normalizeType(type).endsWith("[]");
+	}
+	
+	private static String getArrayItemType(String type) {
+		if (!isArrayType(type)) return "";
+		String t = normalizeType(type);
+		return t.substring(0, t.length() - 2).trim();
+	}
+	
+	private static String getGenericPart(String type) {
+		type = normalizeType(type);
+		int start = type.indexOf('<');
+		int end = type.lastIndexOf('>');
+		if (start == -1 || end == -1 || end <= start) return "";
+		return type.substring(start + 1, end).trim();
+	}
+	
+	private static String getFirstGenericArg(String type) {
+		String generic = getGenericPart(type);
+		if (generic.isEmpty()) return "";
+		
+		int depth = 0;
+		for (int i = 0; i < generic.length(); i++) {
+			char c = generic.charAt(i);
+			
+			if (c == '<') depth++;
+			else if (c == '>') depth--;
+			else if (c == ',' && depth == 0) {
+				return generic.substring(0, i).trim();
+			}
+		}
+		return generic.trim();
+	}
+	
+	private static String unwrapContainerType(String type) {
+		if (type == null) return "";
+		
+		String current = normalizeType(type);
+		while (true) {
+			if (isArrayType(current)) {
+				String next = getArrayItemType(current);
+				if (next.isEmpty() || next.equals(current)) return current;
+				current = next;
+				continue;
+			}
+			
+			if (isRealList(current)) {
+				String next = getFirstGenericArg(current);
+				if (next.isEmpty() || next.equals(current)) return current;
+				current = next;
+				continue;
+			}
+			
+			return current;
+		}
 	}
 	
 	private static boolean isSameSimpleType(String type, String... names) {
@@ -958,41 +1017,6 @@ public class ExtraMenuBean {
 		|| simple.equals("ArrayList")
 		|| simple.equals("LinkedList")
 		|| simple.endsWith("List");
-	}
-	
-	private static boolean isArrayType(String type) {
-		if (type == null) return false;
-		return normalizeType(type).endsWith("[]");
-	}
-	
-	private static String getArrayItemType(String type) {
-		if (!isArrayType(type)) return "";
-		return normalizeType(type).substring(0, normalizeType(type).length() - 2).trim();
-	}
-	
-	private static String getGenericPart(String type) {
-		type = normalizeType(type);
-		int start = type.indexOf('<');
-		int end = type.lastIndexOf('>');
-		if (start == -1 || end == -1 || end <= start) return "";
-		return type.substring(start + 1, end).trim();
-	}
-	
-	private static String getFirstGenericArg(String type) {
-		String generic = getGenericPart(type);
-		if (generic.isEmpty()) return "";
-		
-		int depth = 0;
-		for (int i = 0; i < generic.length(); i++) {
-			char c = generic.charAt(i);
-			
-			if (c == '<') depth++;
-			else if (c == '>') depth--;
-			else if (c == ',' && depth == 0) {
-				return generic.substring(0, i).trim();
-			}
-		}
-		return generic.trim();
 	}
 	
 	private static boolean isUriType(String type) {
@@ -1147,6 +1171,7 @@ public class ExtraMenuBean {
 		}
 		
 		if (itemType.isEmpty()) return false;
+		itemType = unwrapContainerType(itemType);
 		
 		switch (listType) {
 			case LIST_TYPE_STRING:
@@ -1191,8 +1216,6 @@ public class ExtraMenuBean {
 		
 		return new ArrayList<>(menus);
 	}
-	
-	
 	
 	
 	
