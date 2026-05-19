@@ -883,6 +883,8 @@ public class ExtraMenuBean {
 		fpd.show(logicEditor.getSupportFragmentManager(), "filePicker");
 	}
 	
+	
+	//
 	private static String normalizeType(String type) {
 		if (type == null) return "";
 		return type.replace(" ", "").trim();
@@ -893,9 +895,7 @@ public class ExtraMenuBean {
 		if (type.isEmpty()) return "";
 		
 		int index = type.indexOf('<');
-		if (index != -1) {
-			return type.substring(0, index).trim();
-		}
+		if (index != -1) return type.substring(0, index).trim();
 		return type.trim();
 	}
 	
@@ -907,11 +907,73 @@ public class ExtraMenuBean {
 		return dot != -1 ? type.substring(dot + 1) : type;
 	}
 	
+	private static boolean isSameSimpleType(String type, String... names) {
+		if (type == null) return false;
+		
+		String base = getBaseType(type);
+		String simple = getSimpleName(base);
+		
+		for (String name : names) {
+			if (simple.equals(name) || base.equals(name) || type.equals(name)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	private static boolean isStringType(String type) {
+		return isSameSimpleType(type, "String", "CharSequence");
+	}
+	
+	private static boolean isBooleanType(String type) {
+		return isSameSimpleType(type, "boolean", "Boolean");
+	}
+	
+	private static boolean isNumberType(String type) {
+		return isSameSimpleType(type,
+		"byte", "short", "int", "long", "float", "double",
+		"Byte", "Short", "Integer", "Long", "Float", "Double",
+		"BigDecimal", "BigInteger");
+	}
+	
+	private static boolean isRealMap(String type) {
+		if (type == null) return false;
+		
+		String simple = getSimpleName(getBaseType(type));
+		
+		return simple.equals("Map")
+		|| simple.equals("HashMap")
+		|| simple.equals("LinkedHashMap")
+		|| simple.equals("TreeMap")
+		|| simple.equals("ConcurrentHashMap")
+		|| simple.endsWith("Map");
+	}
+	
+	private static boolean isRealList(String type) {
+		if (type == null) return false;
+		
+		String simple = getSimpleName(getBaseType(type));
+		
+		return simple.equals("List")
+		|| simple.equals("ArrayList")
+		|| simple.equals("LinkedList")
+		|| simple.endsWith("List");
+	}
+	
+	private static boolean isArrayType(String type) {
+		if (type == null) return false;
+		return normalizeType(type).endsWith("[]");
+	}
+	
+	private static String getArrayItemType(String type) {
+		if (!isArrayType(type)) return "";
+		return normalizeType(type).substring(0, normalizeType(type).length() - 2).trim();
+	}
+	
 	private static String getGenericPart(String type) {
 		type = normalizeType(type);
 		int start = type.indexOf('<');
 		int end = type.lastIndexOf('>');
-		
 		if (start == -1 || end == -1 || end <= start) return "";
 		return type.substring(start + 1, end).trim();
 	}
@@ -930,70 +992,60 @@ public class ExtraMenuBean {
 				return generic.substring(0, i).trim();
 			}
 		}
-		
 		return generic.trim();
 	}
 	
-	private static boolean isStringType(String type) {
-		String base = getBaseType(type);
-		String simple = getSimpleName(base);
-		return simple.equals("String") || simple.equals("CharSequence");
+	private static boolean isUriType(String type) {
+		return isSameSimpleType(type, "Uri", "android.net.Uri");
 	}
 	
-	private static boolean isBooleanType(String type) {
-		String base = getBaseType(type);
-		String simple = getSimpleName(base);
-		return simple.equals("boolean") || simple.equals("Boolean");
+	private static boolean isIntentType(String type) {
+		return isSameSimpleType(type, "Intent", "android.content.Intent");
 	}
 	
-	private static boolean isNumberType(String type) {
-		String base = getBaseType(type);
-		String simple = getSimpleName(base);
-		
-		return simple.equals("byte") ||
-		simple.equals("short") ||
-		simple.equals("int") ||
-		simple.equals("long") ||
-		simple.equals("float") ||
-		simple.equals("double") ||
-		simple.equals("Byte") ||
-		simple.equals("Short") ||
-		simple.equals("Integer") ||
-		simple.equals("Long") ||
-		simple.equals("Float") ||
-		simple.equals("Double") ||
-		simple.equals("BigDecimal") ||
-		simple.equals("BigInteger");
+	private static boolean isFileType(String type) {
+		return isSameSimpleType(type, "File", "java.io.File");
 	}
 	
-	private static boolean isRealMap(String type) {
-		if (type == null) return false;
-		
-		String base = getBaseType(type);
-		String simple = getSimpleName(base);
-		
-		return simple.equals("Map") ||
-		simple.equals("HashMap") ||
-		simple.equals("LinkedHashMap") ||
-		simple.equals("TreeMap") ||
-		simple.equals("ConcurrentHashMap") ||
-		simple.endsWith("Map");
+	private static boolean isBitmapType(String type) {
+		return isSameSimpleType(type, "Bitmap", "android.graphics.Bitmap");
 	}
 	
-	private static boolean isRealList(String type) {
-		if (type == null) return false;
-		
-		String base = getBaseType(type);
-		String simple = getSimpleName(base);
-		
-		return simple.equals("List") ||
-		simple.equals("ArrayList") ||
-		simple.equals("LinkedList") ||
-		simple.endsWith("List");
+	private static boolean isViewType(String type) {
+		return isSameSimpleType(type, "View", "android.view.View");
+	}
+	
+	private static boolean isActivityType(String type) {
+		return isSameSimpleType(type, "Activity", "android.app.Activity");
+	}
+	
+	private static boolean isContextType(String type) {
+		String simple = getSimpleName(getBaseType(type));
+		return simple.equals("Context")
+		|| simple.equals("Activity")
+		|| simple.equals("Service")
+		|| simple.equals("Application")
+		|| simple.equals("ContextWrapper");
+	}
+	
+	private static boolean isBundleType(String type) {
+		return isSameSimpleType(type, "Bundle", "android.os.Bundle");
+	}
+	
+	private static boolean isJSONObjectType(String type) {
+		return isSameSimpleType(type, "JSONObject", "org.json.JSONObject");
+	}
+	
+	private static boolean isJSONArrayType(String type) {
+		return isSameSimpleType(type, "JSONArray", "org.json.JSONArray");
+	}
+	
+	private static boolean isDrawableType(String type) {
+		return isSameSimpleType(type, "Drawable", "android.graphics.drawable.Drawable");
 	}
 	
 	private static boolean matchesType(String type, String mode) {
-		if (type == null) return false;
+		if (type == null || mode == null) return false;
 		
 		switch (mode) {
 			case "String":
@@ -1008,7 +1060,43 @@ public class ExtraMenuBean {
 			case "Map":
 			return isRealMap(type);
 			
-			case "Object":
+			case "List":
+			return isRealList(type) || isArrayType(type);
+			
+			case "Uri":
+			return isUriType(type);
+			
+			case "Intent":
+			return isIntentType(type);
+			
+			case "File":
+			return isFileType(type);
+			
+			case "Bitmap":
+			return isBitmapType(type);
+			
+			case "View":
+			return isViewType(type);
+			
+			case "Activity":
+			return isActivityType(type);
+			
+			case "Context":
+			return isContextType(type);
+			
+			case "Bundle":
+			return isBundleType(type);
+			
+			case "JSONObject":
+			return isJSONObjectType(type);
+			
+			case "JSONArray":
+			return isJSONArrayType(type);
+			
+			case "Drawable":
+			return isDrawableType(type);
+			
+			case "ObjectX":
 			return true;
 		}
 		
@@ -1018,21 +1106,6 @@ public class ExtraMenuBean {
 	@NonNull
 	public ArrayList<String> getDynamicMenus(String mode, String javaName, eC projectDataManager) {
 		LinkedHashSet<String> menus = new LinkedHashSet<>();
-		
-		if ("Number".equals(mode)) {
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_NUMBER));
-		} else if ("Boolean".equals(mode)) {
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_BOOLEAN));
-		} else if ("String".equals(mode)) {
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_STRING));
-		} else if ("Map".equals(mode)) {
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_MAP));
-		} else if ("Object".equals(mode)) {
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_NUMBER));
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_BOOLEAN));
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_STRING));
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_MAP));
-		}
 		
 		ArrayList<String> customVars = projectDataManager.e(javaName, 6);
 		ArrayList<ComponentBean> components = projectDataManager.e(javaName);
@@ -1061,9 +1134,18 @@ public class ExtraMenuBean {
 	}
 	
 	private static boolean matchesListType(String type, int listType) {
-		if (!isRealList(type)) return false;
+		if (type == null) return false;
 		
-		String itemType = getFirstGenericArg(type);
+		String itemType;
+		
+		if (isRealList(type)) {
+			itemType = getFirstGenericArg(type);
+		} else if (isArrayType(type)) {
+			itemType = getArrayItemType(type);
+		} else {
+			return false;
+		}
+		
 		if (itemType.isEmpty()) return false;
 		
 		switch (listType) {
@@ -1083,8 +1165,6 @@ public class ExtraMenuBean {
 	@NonNull
 	private ArrayList<String> getListMenus(int listType) {
 		LinkedHashSet<String> menus = new LinkedHashSet<>();
-		
-		menus.addAll(projectDataManager.d(javaName, listType));
 		
 		ArrayList<String> customVars = projectDataManager.e(javaName, 6);
 		ArrayList<ComponentBean> components = projectDataManager.e(javaName);
@@ -1111,6 +1191,10 @@ public class ExtraMenuBean {
 		
 		return new ArrayList<>(menus);
 	}
+	
+	
+	
+	
 	
 	
 }
