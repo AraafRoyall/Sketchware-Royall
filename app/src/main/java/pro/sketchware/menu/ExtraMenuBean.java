@@ -884,460 +884,192 @@ public class ExtraMenuBean {
 	}
 	
 	
-	private static String normalizeType(String type) {
-		if (type == null) return "";
-		return type.replace(" ", "").trim();
-	}
-	
-	private static String getBaseType(String type) {
-		type = normalizeType(type);
-		if (type.isEmpty()) return "";
-		
-		int index = type.indexOf('<');
-		if (index != -1) {
-			return type.substring(0, index).trim();
-		}
-		return type.trim();
-	}
-	
-	private static String getSimpleName(String type) {
-		if (type == null) return "";
-		type = type.trim();
-		
-		int dot = type.lastIndexOf('.');
-		return dot != -1 ? type.substring(dot + 1) : type;
-	}
-	
-	private static boolean isArrayType(String type) {
-		if (type == null) return false;
-		return normalizeType(type).endsWith("[]");
-	}
-	
-	private static String getArrayItemType(String type) {
-		if (!isArrayType(type)) return "";
-		String t = normalizeType(type);
-		return t.substring(0, t.length() - 2).trim();
-	}
-	
-	private static String unwrapArrayType(String type) {
-		String current = normalizeType(type);
-		if (current.isEmpty()) return "";
-		
-		while (isArrayType(current)) {
-			String next = getArrayItemType(current);
-			if (next.isEmpty() || next.equals(current)) break;
-			current = next;
-		}
-		return current;
-	}
-	
-	private static String getGenericPart(String type) {
-		type = normalizeType(type);
-		int start = type.indexOf('<');
-		int end = type.lastIndexOf('>');
-		if (start == -1 || end == -1 || end <= start) return "";
-		return type.substring(start + 1, end).trim();
-	}
-	
-	private static String getFirstGenericArg(String type) {
-		String generic = getGenericPart(type);
-		if (generic.isEmpty()) return "";
-		
-		int depth = 0;
-		for (int i = 0; i < generic.length(); i++) {
-			char c = generic.charAt(i);
-			
-			if (c == '<') depth++;
-			else if (c == '>') depth--;
-			else if (c == ',' && depth == 0) {
-				return generic.substring(0, i).trim();
-			}
-		}
-		return generic.trim();
-	}
-	
-	private static boolean isSameSimpleType(String type, String... names) {
-		if (type == null) return false;
-		
-		String base = getBaseType(type);
-		String simple = getSimpleName(base);
-		
-		for (String name : names) {
-			if (simple.equals(name) || base.equals(name) || type.equals(name)) {
-				return true;
-			}
-		}
-		return false;
-	}
-	
-	private static boolean isStringType(String type) {
-		if (type == null) return false;
-		String base = getBaseType(type);
-		return base.endsWith("String") || base.equals("CharSequence");
-	}
-	
-	private static boolean isBooleanType(String type) {
-		if (type == null) return false;
-		String base = getBaseType(type);
-		return base.equals("boolean") || base.equals("Boolean");
-	}
-	
-	private static boolean isNumberType(String type) {
-		if (type == null) return false;
-		String base = getBaseType(type);
-		
-		return base.equals("int") || base.equals("double") ||
-		base.equals("float") || base.equals("long") ||
-		base.equals("short") || base.equals("byte") ||
-		base.equals("Integer") || base.equals("Double") ||
-		base.equals("Float") || base.equals("Long") ||
-		base.equals("Short") || base.equals("Byte") ||
-		base.equals("BigDecimal") || base.equals("BigInteger") ||
-		base.equals("java.lang.Integer") ||
-		base.equals("java.lang.Double") ||
-		base.equals("java.lang.Float") ||
-		base.equals("java.lang.Long") ||
-		base.equals("java.lang.Short") ||
-		base.equals("java.lang.Byte");
-	}
-	
-	private static boolean isRealMap(String type) {
-		if (type == null) return false;
-		
-		String base = getBaseType(type);
-		
-		return (base.endsWith("HashMap") || base.endsWith("Map"))
-		&& !type.contains("ArrayList")
-		&& !type.contains("List");
-	}
-	
-	private static boolean isRealList(String type) {
-		if (type == null) return false;
-		
-		String base = getBaseType(type);
-		
-		return (base.endsWith("ArrayList") || base.endsWith("List") || base.endsWith("LinkedList"))
-		&& !type.contains("HashMap");
-	}
-	
-	private static boolean isUriType(String type) {
-		return isSameSimpleType(type, "Uri", "android.net.Uri");
-	}
-	
-	private static boolean isIntentType(String type) {
-		return isSameSimpleType(type, "Intent", "android.content.Intent");
-	}
-	
-	private static boolean isFileType(String type) {
-		return isSameSimpleType(type, "File", "java.io.File");
-	}
-	
-	private static boolean isBitmapType(String type) {
-		return isSameSimpleType(type, "Bitmap", "android.graphics.Bitmap");
-	}
-	
-	private static boolean isViewType(String type) {
-		return isSameSimpleType(type, "View", "android.view.View");
-	}
-	
-	private static boolean isActivityType(String type) {
-		return isSameSimpleType(type, "Activity", "android.app.Activity");
-	}
-	
-	private static boolean isContextType(String type) {
-		String simple = getSimpleName(getBaseType(type));
-		return simple.equals("Context")
-		|| simple.equals("Activity")
-		|| simple.equals("Service")
-		|| simple.equals("Application")
-		|| simple.equals("ContextWrapper");
-	}
-	
-	private static boolean isBundleType(String type) {
-		return isSameSimpleType(type, "Bundle", "android.os.Bundle");
-	}
-	
-	private static boolean isJSONObjectType(String type) {
-		return isSameSimpleType(type, "JSONObject", "org.json.JSONObject");
-	}
-	
-	private static boolean isJSONArrayType(String type) {
-		return isSameSimpleType(type, "JSONArray", "org.json.JSONArray");
-	}
-	
-	private static boolean isDrawableType(String type) {
-		return isSameSimpleType(type, "Drawable", "android.graphics.drawable.Drawable");
-	}
-	
-	
-	
-	private static boolean matchesType(String type, String mode) {
-		if (type == null || mode == null) return false;
-		
-		if (isArrayType(type) || isRealList(type)) return false;
-		
-		switch (mode) {
-			case "String":
-			return isStringType(type);
-			
-			case "Number":
-			return isNumberType(type);
-			
-			case "Boolean":
-			return isBooleanType(type);
-			
-			case "Map":
-			return isRealMap(type);
-			
-			case "Object":
-			case "ObjectX":
-			return true;
-			
-			case "Uri":
-			return isUriType(type);
-			
-			case "Intent":
-			return isIntentType(type);
-			
-			case "File":
-			return isFileType(type);
-			
-			case "Bitmap":
-			return isBitmapType(type);
-			
-			case "View":
-			return isViewType(type);
-			
-			case "Activity":
-			return isActivityType(type);
-			
-			case "Context":
-			return isContextType(type);
-			
-			case "Bundle":
-			return isBundleType(type);
-			
-			case "JSONObject":
-			return isJSONObjectType(type);
-			
-			case "JSONArray":
-			return isJSONArrayType(type);
-			
-			case "Drawable":
-			return isDrawableType(type);
-		}
-		
-		return false;
-	}
-	
-	@NonNull
-	public ArrayList<String> getDynamicMenus(String mode, String javaName, eC projectDataManager) {
-		LinkedHashSet<String> menus = new LinkedHashSet<>();
-		
-		switch (mode) {
-			case "Number":
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_NUMBER));
-			break;
-			
-			case "Boolean":
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_BOOLEAN));
-			break;
-			
-			case "String":
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_STRING));
-			break;
-			
-			case "Map":
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_MAP));
-			break;
-			
-			case "Object":
-			case "ObjectX":
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_NUMBER));
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_BOOLEAN));
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_STRING));
-			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_MAP));
-			break;
-		}
-		
-		ArrayList<String> customVars = projectDataManager.e(javaName, 6);
-		ArrayList<ComponentBean> components = projectDataManager.e(javaName);
-		
-		for (String variable : customVars) {
-			String type = CustomVariableUtil.getVariableType(variable);
-			String name = CustomVariableUtil.getVariableName(variable);
-			
-			if (type == null || name == null) continue;
-			
-			if (matchesType(type, mode)) {
-				menus.add(name);
-			}
-		}
-		
-		for (ComponentBean comp : components) {
-			String build = ComponentsHandler.getBuildClassById(comp.type);
-			if (build == null) continue;
-			
-			if (matchesType(build, mode)) {
-				menus.add(comp.componentId);
-			}
-		}
-		
-		return new ArrayList<>(menus);
-	}
-	private static boolean matchesListType(String type, int listType) {
-		if (type == null) return false;
-		
-		String base = getBaseType(type);
-		
-		// real Java lists only
-		if (!isRealList(type)) return false;
-		
-		switch (listType) {
-			case LIST_TYPE_STRING:
-			return type.contains("String")
-			|| type.contains("CharSequence");
-			
-			case LIST_TYPE_NUMBER:
-			return type.contains("Double")
-			|| type.contains("Integer")
-			|| type.contains("Float")
-			|| type.contains("Long")
-			|| type.contains("Short")
-			|| type.contains("Byte");
-			
-			case LIST_TYPE_MAP:
-			return (type.contains("HashMap") || type.contains("Map"))
-			&& type.contains("String")
-			&& (type.contains("Object") || type.contains("java.lang.Object"));
-		}
-		
-		return false;
-	}
-	
-	@NonNull
-	private ArrayList<String> getListMenus(int listType) {
-		LinkedHashSet<String> menus = new LinkedHashSet<>();
-		
-		menus.addAll(projectDataManager.d(javaName, listType));
-		
-		ArrayList<String> customVars = projectDataManager.e(javaName, 6);
-		ArrayList<ComponentBean> components = projectDataManager.e(javaName);
-		
-		for (String variable : customVars) {
-			String type = CustomVariableUtil.getVariableType(variable);
-			String name = CustomVariableUtil.getVariableName(variable);
-			
-			if (type == null || name == null) continue;
-			
-			if (matchesListType(type, listType)) {
-				menus.add(name);
-			}
-		}
-		
-		for (ComponentBean comp : components) {
-			String build = ComponentsHandler.getBuildClassById(comp.type);
-			if (build == null) continue;
-			
-			if (matchesListType(build, listType)) {
-				menus.add(comp.componentId);
-			}
-		}
-		
-		return new ArrayList<>(menus);
-	}
-	
-	private static boolean matchesArrayType(String type, String mode) {
-		if (type == null || mode == null) return false;
-		if (!isArrayType(type)) return false;
-		
-		String leafType = unwrapArrayType(type);
-		if (leafType.isEmpty()) return false;
-		
-		switch (mode) {
-			case "String":
-			return isStringType(leafType);
-			
-			case "Number":
-			return isNumberType(leafType);
-			
-			case "Boolean":
-			return isBooleanType(leafType);
-			
-			case "Map":
-			return isRealMap(leafType);
-			
-			case "Object":
-			case "ObjectX":
-			return true;
-			
-			case "Uri":
-			return isUriType(leafType);
-			
-			case "Intent":
-			return isIntentType(leafType);
-			
-			case "File":
-			return isFileType(leafType);
-			
-			case "Bitmap":
-			return isBitmapType(leafType);
-			
-			case "View":
-			return isViewType(leafType);
-			
-			case "Activity":
-			return isActivityType(leafType);
-			
-			case "Context":
-			return isContextType(leafType);
-			
-			case "Bundle":
-			return isBundleType(leafType);
-			
-			case "JSONObject":
-			return isJSONObjectType(leafType);
-			
-			case "JSONArray":
-			return isJSONArrayType(leafType);
-			
-			case "Drawable":
-			return isDrawableType(leafType);
-			
-			case "List":
-			return isRealList(leafType);
-		}
-		
-		return false;
-	}
-	
-	@NonNull
-	public ArrayList<String> getArrayMenus(String mode, String javaName, eC projectDataManager) {
-		LinkedHashSet<String> menus = new LinkedHashSet<>();
-		
-		ArrayList<String> customVars = projectDataManager.e(javaName, 6);
-		ArrayList<ComponentBean> components = projectDataManager.e(javaName);
-		
-		for (String variable : customVars) {
-			String type = CustomVariableUtil.getVariableType(variable);
-			String name = CustomVariableUtil.getVariableName(variable);
-			
-			if (type == null || name == null) continue;
-			
-			if (matchesArrayType(type, mode)) {
-				menus.add(name);
-			}
-		}
-		
-		for (ComponentBean comp : components) {
-			String build = ComponentsHandler.getBuildClassById(comp.type);
-			if (build == null) continue;
-			
-			if (matchesArrayType(build, mode)) {
-				menus.add(comp.componentId);
-			}
-		}
-		
-		return new ArrayList<>(menus);
-	}
+        private static boolean matchesType(String type, String mode) {
+
+                if (type == null) return false;
+
+                String base = getBaseType(type);
+
+                switch (mode) {
+
+                        case "String":
+                        return base.endsWith("String") || base.equals("CharSequence");
+
+                        case "Number":
+                        return base.equals("int") || base.equals("double") ||
+                        base.equals("float") || base.equals("long") ||
+                        base.equals("short") ||
+                        base.equals("Integer") || base.equals("Double") ||
+                        base.equals("Float") || base.equals("Long") ||
+                        base.equals("Short") ||
+                        base.equals("java.lang.Integer") ||
+                        base.equals("java.lang.Double");
+
+                        case "Boolean":
+                        return base.equals("boolean") || base.equals("Boolean");
+
+                        case "Map":
+                        return isRealMap(type);
+
+                        case "Object":
+                        return true;
+                }
+
+                return false;
+        }
+
+
+        private static String getBaseType(String type) {
+
+                if (type == null) return "";
+
+                int index = type.indexOf("<");
+                if (index != -1) {
+                        return type.substring(0, index).trim();
+                }
+
+                return type.trim();
+        }
+
+        private static boolean isRealMap(String type) {
+
+                if (type == null) return false;
+
+                String base = getBaseType(type);
+
+                return (base.endsWith("HashMap") || base.endsWith("Map"))
+                && !type.contains("ArrayList")
+                && !type.contains("List");
+        }
+
+
+        @NonNull
+        public ArrayList<String> getDynamicMenus(String mode, String javaName, eC projectDataManager) {
+
+                LinkedHashSet<String> menus = new LinkedHashSet<>();
+
+                switch (mode) {
+
+                        case "Number":
+                        menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_NUMBER));
+                        break;
+
+                        case "Boolean":
+                        menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_BOOLEAN));
+                        break;
+
+                        case "String":
+                        menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_STRING));
+                        break;
+
+                        case "Map":
+                        menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_MAP));
+                        break;
+                }
+
+
+                ArrayList<String> customVars = projectDataManager.e(javaName, 6);
+                ArrayList<ComponentBean> components = projectDataManager.e(javaName);
+
+                for (String variable : customVars) {
+
+                        String type = CustomVariableUtil.getVariableType(variable);
+                        String name = CustomVariableUtil.getVariableName(variable);
+
+                        if (type == null || name == null) continue;
+
+                        if (matchesType(type, mode)) {
+                                menus.add(name);
+                        }
+                }
+
+                for (ComponentBean comp : components) {
+
+                        String build = ComponentsHandler.getBuildClassById(comp.type);
+
+                        if (build == null) continue;
+
+                        if (matchesType(build, mode)) {
+                                menus.add(comp.componentId);
+                        }
+                }
+
+                return new ArrayList<>(menus);
+        }
+
+        private static boolean isRealList(String type) {
+
+                if (type == null) return false;
+
+                String base = getBaseType(type);
+
+                return (base.endsWith("ArrayList") || base.endsWith("List"));
+        }
+
+        // =========================
+        // ✅ LIST TYPE MATCHER
+        // =========================
+        private static boolean matchesListType(String type, int listType) {
+
+                if (!isRealList(type)) return false;
+
+                switch (listType) {
+
+                        case LIST_TYPE_STRING:
+                        return type.contains("String") && !type.contains("HashMap");
+
+                        case LIST_TYPE_NUMBER:
+                        return (
+                        type.contains("Double") ||
+                        type.contains("Integer") ||
+                        type.contains("Float") ||
+                        type.contains("Long") ||
+                        type.contains("Short")
+                        ) && !type.contains("HashMap");
+
+                        case LIST_TYPE_MAP:
+                        return type.contains("HashMap") &&
+                        type.contains("String") &&
+                        type.contains("Object");
+                }
+
+                return false;
+        }
+
+        @NonNull
+        private ArrayList<String> getListMenus(int listType) {
+
+                LinkedHashSet<String> menus = new LinkedHashSet<>();
+
+                menus.addAll(projectDataManager.d(javaName, listType));
+
+                ArrayList<String> customVars = projectDataManager.e(javaName, 6);
+                ArrayList<ComponentBean> components = projectDataManager.e(javaName);
+
+                for (String variable : customVars) {
+
+                        String type = CustomVariableUtil.getVariableType(variable);
+                        String name = CustomVariableUtil.getVariableName(variable);
+
+                        if (type == null || name == null) continue;
+
+                        if (matchesListType(type, listType)) {
+                                menus.add(name);
+                        }
+                }
+
+                for (ComponentBean comp : components) {
+
+                        String build = ComponentsHandler.getBuildClassById(comp.type);
+
+                        if (build == null) continue;
+
+                        if (matchesListType(build, listType)) {
+                                menus.add(comp.componentId);
+                        }
+                }
+
+                return new ArrayList<>(menus);
+        }
+
 }
