@@ -632,17 +632,21 @@ public class Jx {
 	
 	private String getComponentDeclarationAndAddImports(ComponentBean componentBean) {
 		
-		String typeName = componentBean.param1;
+		String varName = componentBean.param1;
 		
-		if (TextUtils.isEmpty(typeName)) {
-			typeName = ComponentsHandler.getVarName(
+		if (TextUtils.isEmpty(varName)) {
+			varName = ComponentsHandler.getVarName(
 			ComponentBean.getComponentTypeName(componentBean.type)
 			);
 		}
 		
-		return Lx.a(typeName, componentBean.componentId, Lx.AccessModifier.PRIVATE,
-		componentBean.param1, componentBean.param2, componentBean.param3);
+		return Lx.a(varName, componentBean.componentId,
+		Lx.AccessModifier.PRIVATE,
+		componentBean.param1,
+		componentBean.param2,
+		componentBean.param3);
 	}
+	
 	private String getDrawerViewDeclarationAndAddImports(ViewBean viewBean) {
 		String viewType = WIDGET_NAME_PATTERN.matcher(viewBean.convert).replaceAll("");
 		if (viewType.isEmpty()) {
