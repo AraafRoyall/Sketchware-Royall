@@ -1,22 +1,19 @@
-package pro.sketchware.dialogs;
-
 import android.content.Intent;
-import android.hardware.Sensor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.fragment.app.BottomSheetDialogFragment;
 
-import com.besome.sketch.beans.ComponentBean;
-import com.besome.sketch.beans.ProjectFileBean;
-import com.besome.sketch.beans.ProjectLibraryBean;
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,6 +33,7 @@ import pro.sketchware.lib.DebouncedClickListener;
 
 public class InnerAddComponentBottomSheet extends BottomSheetDialogFragment {
     private final AtomicInteger selectedMime = new AtomicInteger(0);
+
     private LogicAddComponentDialogBinding binding;
     private OnSaveClickListener onSaveClickListener;
     private String scId;
@@ -46,6 +44,10 @@ public class InnerAddComponentBottomSheet extends BottomSheetDialogFragment {
     private SB componentFileNameValidator;
     private SB componentFirebasePathValidator;
     private SB componentMimeTypeValidator;
+
+    private final ArrayList<String> customVarTypeValues = new ArrayList<>();
+    private String selectedCustomVarType = "";
+    private boolean hasCustomVarTypeOverride = false;
 
     public static InnerAddComponentBottomSheet newInstance(String scId, ProjectFileBean projectFileBean, ComponentBean componentBean, OnSaveClickListener onSaveClickListener) {
         InnerAddComponentBottomSheet sheet = new InnerAddComponentBottomSheet();
@@ -101,6 +103,28 @@ public class InnerAddComponentBottomSheet extends BottomSheetDialogFragment {
                 break;
         }
 
+        String rawVarName = ComponentsHandler.getVarName(componentBean.type);
+
+        customVarTypeValues.clear();
+        selectedCustomVarType = "";
+        hasCustomVarTypeOverride = false;
+
+        if (!TextUtils.isEmpty(rawVarName) && rawVarName.contains("|")) {
+            for (String part : rawVarName.split("\\|")) {
+                String v = part.trim();
+                if (!v.isEmpty()) {
+                    customVarTypeValues.add(v);
+                }
+            }
+
+            if (!customVarTypeValues.isEmpty()) {
+                hasCustomVarTypeOverride = true;
+                selectedCustomVarType = customVarTypeValues.get(0);
+            }
+        } else if (!TextUtils.isEmpty(rawVarName)) {
+            selectedCustomVarType = rawVarName;
+        }
+
         binding.title.setText(ComponentBean.getComponentName(getContext(), componentBean.type));
         binding.icon.setImageResource(ComponentBean.getIconResource(componentBean.type));
         binding.description.setText(ComponentsHandler.description(componentBean.type));
@@ -111,12 +135,25 @@ public class InnerAddComponentBottomSheet extends BottomSheetDialogFragment {
         binding.tiInput.setHint(Helper.getResString(R.string.component_hint_enter_name));
         binding.tiInputFilename.setHint(Helper.getResString(R.string.component_file_hint_enter_file_name));
         binding.tiInputFirebasePath.setHint(Helper.getResString(R.string.design_library_firebase_hint_enter_data_location));
-        binding.tiInputFilePicker.setHint(Helper.getResString(R.string.component_file_picker_hint_mime_type));
 
         binding.tiInputFirebasePath.setHelperText(Helper.getResString(R.string.design_library_firebase_guide_path_example));
-        binding.tiInputFilePicker.setHelperText(Helper.getResString(R.string.component_description_file_picker_guide_mime_type_example));
 
-        binding.tiInputFilePicker.setEndIconOnClickListener(v -> showFilePickerMimeTypeSelectionDialog());
+        if (componentBean.type == ComponentBean.COMPONENT_TYPE_FILE_PICKER) {
+            binding.tiInputFilePicker.setVisibility(View.VISIBLE);
+            binding.tiInputFilePicker.setHint(Helper.getResString(R.string.component_file_picker_hint_mime_type));
+            binding.tiInputFilePicker.setHelperText(Helper.getResString(R.string.component_description_file_picker_guide_mime_type_example));
+            binding.tiInputFilePicker.setEndIconOnClickListener(v -> showFilePickerMimeTypeSelectionDialog());
+        } else if (hasCustomVarTypeOverride) {
+            binding.tiInputFilePicker.setVisibility(View.VISIBLE);
+            binding.tiInputFilePicker.setHint(Helper.getResString(R.string.common_word_select));
+            binding.tiInputFilePicker.setHelperText(null);
+            binding.edInputFilePicker.setText(selectedCustomVarType);
+            binding.edInputFilePicker.setFocusable(false);
+            binding.edInputFilePicker.setClickable(true);
+            binding.tiInputFilePicker.setEndIconOnClickListener(v -> showCustomVarTypeSelectionDialog());
+        } else {
+            binding.tiInputFilePicker.setVisibility(View.GONE);
+        }
 
         componentNameValidator = new ZB(getContext(), binding.tiInput, uq.b, uq.a(), jC.a(scId).a(projectFileBean));
         componentFileNameValidator = new SB(getContext(), binding.tiInputFilename, 1, 20);
@@ -191,12 +228,36 @@ public class InnerAddComponentBottomSheet extends BottomSheetDialogFragment {
                 .show();
     }
 
+    private void showCustomVarTypeSelectionDialog() {
+        if (getContext() == null || customVarTypeValues.isEmpty()) return;
+
+        int checkedIndex = customVarTypeValues.indexOf(selectedCustomVarType);
+        if (checkedIndex < 0) {
+            checkedIndex = 0;
+        }
+
+        AtomicInteger selectedChoice = new AtomicInteger(checkedIndex);
+        String[] items = customVarTypeValues.toArray(new String[0]);
+
+        new MaterialAlertDialogBuilder(getContext())
+                .setTitle(R.string.common_word_select)
+                .setSingleChoiceItems(items, checkedIndex, (dialog, which) -> selectedChoice.set(which))
+                .setPositiveButton(R.string.common_word_select, (dialog, which) -> {
+                    selectedCustomVarType = items[selectedChoice.get()];
+                    binding.edInputFilePicker.setText(selectedCustomVarType);
+                })
+                .setNegativeButton(R.string.common_word_cancel, (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
     private boolean checks() {
         int componentType = componentBean.type;
         String componentId = Helper.getText(binding.edInput);
+
         if (!componentNameValidator.b()) {
             return false;
         }
+
         switch (componentType) {
             case ComponentBean.COMPONENT_TYPE_SHAREDPREF:
                 if (!componentFileNameValidator.b()) {
@@ -254,8 +315,17 @@ public class InnerAddComponentBottomSheet extends BottomSheetDialogFragment {
                 break;
 
             default:
-                jC.a(scId).a(projectFileBean.getJavaName(), componentType, componentId);
+                if (hasCustomVarTypeOverride) {
+                    if (TextUtils.isEmpty(selectedCustomVarType)) {
+                        return false;
+                    }
+                    jC.a(scId).a(projectFileBean.getJavaName(), componentType, componentId, selectedCustomVarType);
+                } else {
+                    jC.a(scId).a(projectFileBean.getJavaName(), componentType, componentId);
+                }
+                break;
         }
+
         jC.a(scId).k();
         return true;
     }
