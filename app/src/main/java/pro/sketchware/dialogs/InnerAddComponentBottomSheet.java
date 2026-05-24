@@ -1,3 +1,10 @@
+package pro.sketchware.dialogs;
+
+import com.besome.sketch.beans.ComponentBean;
+import com.besome.sketch.beans.ProjectFileBean;
+import com.besome.sketch.beans.ProjectLibraryBean;
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
+
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
