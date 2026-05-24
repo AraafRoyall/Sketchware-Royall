@@ -3,7 +3,6 @@ package pro.sketchware.dialogs;
 import com.besome.sketch.beans.ComponentBean;
 import com.besome.sketch.beans.ProjectFileBean;
 import com.besome.sketch.beans.ProjectLibraryBean;
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -16,7 +15,8 @@ import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.BottomSheetDialogFragment;
+import android.hardware.Sensor;
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -110,8 +110,8 @@ public class InnerAddComponentBottomSheet extends BottomSheetDialogFragment {
                 break;
         }
 
-        String rawVarName = ComponentsHandler.getVarName(componentBean.type);
-
+        String rawVarName = ComponentsHandler.getVarName(ComponentBean.getComponentTypeName(componentBean.type));
+        
         customVarTypeValues.clear();
         selectedCustomVarType = "";
         hasCustomVarTypeOverride = false;
