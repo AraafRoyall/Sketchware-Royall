@@ -775,12 +775,12 @@ public class Jx {
 		componentBean.param3
 		);
 		
-		if (TextUtils.isEmpty(defineCode)) {
-			return initCode;
-		}
+		if (TextUtils.isEmpty(defineCode)) return initCode;
+		if (TextUtils.isEmpty(initCode)) return defineCode;
 		
 		return defineCode + EOL + initCode;
 	}
+	
 	private void handleAppCompat() {
 		if (buildConfig.g) {
 			addImport("androidx.appcompat.app.AppCompatActivity");
