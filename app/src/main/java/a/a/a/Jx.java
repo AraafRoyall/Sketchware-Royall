@@ -632,15 +632,30 @@ public class Jx {
 	
 	private String getComponentDeclarationAndAddImports(ComponentBean componentBean) {
 		
+		String rawVarName = ComponentsHandler.getVarName(
+		ComponentBean.getComponentTypeName(componentBean.type)
+		);
+		
 		String varName = componentBean.param1;
 		
 		if (TextUtils.isEmpty(varName)) {
-			varName = ComponentsHandler.getVarName(
-			ComponentBean.getComponentTypeName(componentBean.type)
-			);
+			varName = pickPipeOption(rawVarName, 0);
 		}
 		
-		return Lx.a(varName, componentBean.componentId,
+		int selectedIndex = getPipeIndex(rawVarName, varName);
+		
+		String defineAdditionalVar =
+		ComponentsHandler.defineExtraVar(
+		ComponentBean.getComponentTypeName(componentBean.type),
+		componentBean.componentId
+		);
+		
+		defineAdditionalVar =
+		pickPipeOption(defineAdditionalVar, selectedIndex);
+		
+		return defineAdditionalVar + "\n" +
+		Lx.a(varName,
+		componentBean.componentId,
 		Lx.AccessModifier.PRIVATE,
 		componentBean.param1,
 		componentBean.param2,
@@ -1189,5 +1204,40 @@ public class Jx {
 		}
 		return "activity = this;";
 	}
+	
+	
+	private static String pickPipeOption(String raw, int index) {
+		
+		if (TextUtils.isEmpty(raw)) return "";
+		
+		String[] parts = raw.split("\\|");
+		
+		if (parts.length == 0) return "";
+		
+		if (index < 0) index = 0;
+		
+		if (index >= parts.length) {
+			index = parts.length - 1;
+		}
+		
+		return parts[index].trim();
+	}
+	
+	private static int getPipeIndex(String raw, String selected) {
+		
+		if (TextUtils.isEmpty(raw)) return 0;
+		
+		String[] parts = raw.split("\\|");
+		
+		for (int i = 0; i < parts.length; i++) {
+			
+			if (parts[i].trim().equals(selected.trim())) {
+				return i;
+			}
+		}
+		
+		return 0;
+	}
+	
 	
 }
