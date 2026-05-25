@@ -1,7 +1,21 @@
-name: Revert Last Commit
+name: Revert Commit
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "What do you want to revert?"
+        required: true
+        type: choice
+        options:
+          - Last
+          - By Hash
+        default: Last
+
+      commit_hash:
+        description: "Commit hash to revert (required only for By Hash)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -14,7 +28,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Git
@@ -22,13 +36,23 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Revert Last Commit
+      - name: Choose commit
+        id: pick
         run: |
-          LAST_COMMIT=$(git rev-parse HEAD)
+          if [ "${{ github.event.inputs.mode }}" = "Last" ]; then
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          else
+            if [ -z "${{ github.event.inputs.commit_hash }}" ]; then
+              echo "commit_hash is required when mode is By Hash"
+              exit 1
+            fi
+            echo "sha=${{ github.event.inputs.commit_hash }}" >> "$GITHUB_OUTPUT"
+          fi
 
-          git revert --no-edit $LAST_COMMIT
-
-      - name: Push Changes
+      - name: Revert commit
         run: |
-          BRANCH=${GITHUB_REF#refs/heads/}
-          git push origin "$BRANCH"
+          git revert --no-edit "${{ steps.pick.outputs.sha }}"
+
+      - name: Push
+        run: |
+          git push origin HEAD:${{ github.ref_name }}
