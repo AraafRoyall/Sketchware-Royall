@@ -778,7 +778,7 @@ public class Jx {
 		if (TextUtils.isEmpty(defineCode)) return initCode;
 		if (TextUtils.isEmpty(initCode)) return defineCode;
 		
-		return defineCode + EOL;
+		return defineCode;
 	}
 	
 	private void handleAppCompat() {
