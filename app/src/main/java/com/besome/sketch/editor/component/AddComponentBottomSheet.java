@@ -197,6 +197,8 @@ public class AddComponentBottomSheet extends BottomSheetDialogFragment {
                 String componentName = ComponentBean.getComponentName(itemView.getContext(), componentBean.type);
                 binding.name.setText(componentName);
                 binding.icon.setImageResource(ComponentBean.getIconResource(componentBean.type));
+binding.icon.clearColorFilter();
+binding.icon.setImageTintList(null);
                 binding.getRoot().setOnClickListener(v -> showAddComponentDialog(componentBean));
             }
         }

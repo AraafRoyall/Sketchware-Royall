@@ -14,6 +14,7 @@ import android.widget.RadioButton;
 import android.widget.TextView;
 import java.util.LinkedHashSet;
 import androidx.annotation.NonNull;
+import android.text.TextUtils;
 
 import com.besome.sketch.beans.AdTestDeviceBean;
 import com.besome.sketch.beans.AdUnitBean;
@@ -301,6 +302,11 @@ public class ExtraMenuBean {
 			case "varStr":
 			title = logicEditor.getString(R.string.logic_editor_title_select_variable_string);
 			menus = getDynamicMenus("String", javaName, projectDataManager);
+			break;
+			
+			case "varObject":
+			title = "Select Object Variable";
+			menus = getDynamicMenus("ObjectX", javaName, projectDataManager);
 			break;
 			
 			case "varMap":
@@ -808,7 +814,7 @@ public class ExtraMenuBean {
 		}
 		
 		return list;
-	}	
+	}        
 	
 	private ArrayList<String> getComponentMenus(int type) {
 		return projectDataManager.b(javaName, type);
@@ -878,6 +884,7 @@ public class ExtraMenuBean {
 		fpd.show(logicEditor.getSupportFragmentManager(), "filePicker");
 	}
 	
+	
 	private static boolean matchesType(String type, String mode) {
 		
 		if (type == null) return false;
@@ -911,8 +918,8 @@ public class ExtraMenuBean {
 		
 		return false;
 	}
-
-
+	
+	
 	private static String getBaseType(String type) {
 		
 		if (type == null) return "";
@@ -960,8 +967,8 @@ public class ExtraMenuBean {
 			menus.addAll(projectDataManager.e(javaName, VARIABLE_TYPE_MAP));
 			break;
 		}
-
-
+		
+		
 		ArrayList<String> customVars = projectDataManager.e(javaName, 6);
 		ArrayList<ComponentBean> components = projectDataManager.e(javaName);
 		
@@ -977,13 +984,14 @@ public class ExtraMenuBean {
 			}
 		}
 		
+		
 		for (ComponentBean comp : components) {
 			
-			String build = ComponentsHandler.getBuildClassById(comp.type);
+			String type = resolveComponentVarType(comp);
 			
-			if (build == null) continue;
+			if (TextUtils.isEmpty(type)) continue;
 			
-			if (matchesType(build, mode)) {
+			if (matchesType(type, mode)) {
 				menus.add(comp.componentId);
 			}
 		}
@@ -1036,7 +1044,7 @@ public class ExtraMenuBean {
 		LinkedHashSet<String> menus = new LinkedHashSet<>();
 		
 		menus.addAll(projectDataManager.d(javaName, listType));
-
+		
 		ArrayList<String> customVars = projectDataManager.e(javaName, 6);
 		ArrayList<ComponentBean> components = projectDataManager.e(javaName);
 		
@@ -1054,17 +1062,41 @@ public class ExtraMenuBean {
 		
 		for (ComponentBean comp : components) {
 			
-			String build = ComponentsHandler.getBuildClassById(comp.type);
+			String type = resolveComponentVarType(comp);
 			
-			if (build == null) continue;
+			if (TextUtils.isEmpty(type)) continue;
 			
-			if (matchesListType(build, listType)) {
+			if (matchesListType(type, listType)) {
 				menus.add(comp.componentId);
 			}
 		}
 		
 		return new ArrayList<>(menus);
 	}
+	
+	
+	private static String resolveComponentVarType(ComponentBean comp) {
+		if (comp == null) return "";
+		
+		String varType = comp.param1;
+		
+		if (TextUtils.isEmpty(varType)) {
+			varType = ComponentsHandler.getVarName(
+			ComponentBean.getComponentTypeName(comp.type)
+			);
+		}
+		
+		if (varType == null) return "";
+		
+		int pipeIndex = varType.indexOf("|");
+		if (pipeIndex != -1) {
+			varType = varType.substring(0, pipeIndex).trim();
+		}
+		
+		return varType.trim();
+	}
+	
+	
 	
 	
 }
