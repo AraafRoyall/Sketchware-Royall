@@ -1,4 +1,4 @@
-package Araaf.royall.events;
+package Araaf.Royall.events;
 
 import pro.sketchware.R;
 
