@@ -1,4 +1,4 @@
-package Araaf.royall.components;
+package Araaf.Royall.Components;
 
 import pro.sketchware.R;
 
