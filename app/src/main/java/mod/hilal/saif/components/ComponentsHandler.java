@@ -21,13 +21,14 @@ import java.util.Map;
 import java.util.Optional;
 
 import a.a.a.Lx;
-import Araaf.royall.components.ComponentHelper;
 import mod.hey.studios.util.Helper;
 import mod.jbk.util.OldResourceIdMapper;
 import pro.sketchware.R;
 import pro.sketchware.SketchApplication;
 import pro.sketchware.utility.FileUtil;
 import pro.sketchware.utility.SketchwareUtil;
+
+import Araaf.Royall.Components.ComponentHelper;
 
 public class ComponentsHandler {
 
