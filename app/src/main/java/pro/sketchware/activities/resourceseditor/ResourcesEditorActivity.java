@@ -50,6 +50,7 @@ import pro.sketchware.utility.FileUtil;
 import pro.sketchware.utility.PropertiesUtil;
 import pro.sketchware.utility.SketchwareUtil;
 import pro.sketchware.utility.UI;
+import pro.sketchware.activities.resourceseditor.components.fragments.DimensEditor;
 
 public class ResourcesEditorActivity extends BaseAppCompatActivity {
 	
@@ -73,6 +74,9 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 	private ResourcesEditorsActivityBinding binding;
 	private MaterialAlertDialogBuilder builder;
 	private int currentTabPosition = 0;
+	
+	public String dimensFilePath;
+	public DimensEditor dimensEditor;
 	
 	public static String escapeXml(String text) {
 		if (text == null) return "";
@@ -105,7 +109,7 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 		binding = ResourcesEditorsActivityBinding.inflate(getLayoutInflater());
 		setContentView(binding.getRoot());
 		setSupportActionBar(binding.topAppBar);
-		binding.viewPager.setOffscreenPageLimit(6);
+		binding.viewPager.setOffscreenPageLimit(7);
 	}
 	
 	private void initializeManagers() {
@@ -122,6 +126,7 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 		themesEditor = new ThemesEditor();
 		arraysEditor = new ArraysEditor();
 		intsEditor = new IntsEditor();
+		dimensEditor = new DimensEditor();
 	}
 	
 	private void initializeBackgroundTask(String variant) {
@@ -133,6 +138,7 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 		themesFilePath = baseDir + "themes.xml";
 		arrayFilePath = baseDir + "arrays.xml";
 		integersFilePath = baseDir + "integers.xml";
+		dimensFilePath = baseDir + "dimens.xml";
 		
 		setupViewPager();
 		startBackgroundTask();
@@ -150,6 +156,7 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 				case 3 -> themesEditor.showAddThemeDialog();
 				case 4 -> arraysEditor.showAddArrayDialog();
 				case 5 -> intsEditor.showAddIntDialog();
+				case 6 -> dimensEditor.showAdd();
 			}
 		});
 	}
@@ -170,6 +177,7 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 		themesEditor.updateThemesList(themesFilePath, 0, false);
 		arraysEditor.updateArraysList(arrayFilePath, 0, false);
 		intsEditor.updateIntsList(integersFilePath, 0, false);
+		dimensEditor.updateDimensList(dimensFilePath, 0, false);
 	}
 	
 	public void checkForInvalidResources() {
@@ -197,6 +205,10 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 		
 		if (intsEditor.intsEditorManager.isDataLoadingFailed) {
 			showLoadFailedDialog("integers.xml", integersFilePath);
+			return;
+		}
+		if (dimensEditor.manager.isDataLoadingFailed) {
+			showLoadFailedDialog("dimens.xml", dimensFilePath);
 			return;
 		}
 		
@@ -286,6 +298,9 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 		if (intsEditor.hasUnsavedChanges) {
 			unsavedFiles.add("integers.xml");
 		}
+		if (dimensEditor.hasUnsavedChanges) {
+			unsavedFiles.add("dimens.xml");
+		}
 		return unsavedFiles;
 	}
 	
@@ -315,6 +330,9 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 			}
 			if (currentItem == 5 || intsEditor.intsEditorManager.isDataLoadingFailed) {
 				intsEditor.updateIntsList(integersFilePath, 0, false);
+			}
+			if (currentItem == 6 || dimensEditor.manager.isDataLoadingFailed) {
+				dimensEditor.updateDimensList(dimensFilePath, 0, false);
 			}
 			checkForInvalidResources();
 		}
@@ -347,6 +365,8 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 						arraysEditor.adapter.filter(newText);
 					} else if (currentItem == 5) {
 						intsEditor.adapter.filter(newText);
+					} else if (currentItem == 6) {
+						dimensEditor.adapter.filter(newText);
 					}
 					return false;
 				}
@@ -407,6 +427,11 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 					intsEditor.saveIntsFile();
 					goToCodeEditor("integers.xml", integersFilePath);
 				}
+				case 6 -> {
+					dimensEditor.hasUnsavedChanges = true;
+					dimensEditor.save();
+					goToCodeEditor("dimens.xml", dimensFilePath);
+				}
 			}
 		}
 		return super.onOptionsItemSelected(item);
@@ -425,6 +450,7 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 		themesEditor.saveThemesFile();
 		arraysEditor.saveArraysFile();
 		intsEditor.saveIntsFile();
+		dimensEditor.save();
 		updateProjectMetadata();
 		SketchwareUtil.toast("Save completed");
 	}
@@ -462,6 +488,7 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 				case 3 -> tab.setText("themes" + variant + ".xml");
 				case 4 -> tab.setText("arrays" + variant + ".xml");
 				case 5 -> tab.setText("integers" + variant + ".xml");
+				case 6 -> tab.setText("dimens" + variant + ".xml");
 			}
 		}).attach();
 		UI.animateLayoutChanges(binding.viewPager);
@@ -600,7 +627,8 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 		"styles.xml",
 		"themes.xml",
 		"arrays.xml",
-		"integers.xml"
+		"integers.xml",
+		"dimens.xml"
 		));
 		
 		ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_multiple_choice, resourcesFileNames);
@@ -629,6 +657,8 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 						arraysEditor.updateArraysList(arrayFilePath.replace(variant, ""), updateMode, true);
 						case 5 ->
 						intsEditor.updateIntsList(integersFilePath.replace(variant, ""), updateMode, true);
+						case 6 ->
+						dimensEditor.updateDimensList(dimensFilePath.replace(variant, ""), updateMode, true);
 					}
 				}
 			}
