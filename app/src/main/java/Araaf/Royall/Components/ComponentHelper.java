@@ -43,14 +43,14 @@ public final class ComponentHelper {
     public static final ComponentData[] COMPONENTS = {
 
             new ComponentData(
-                    "My Component",
-                    "100",
-                    "2131165298",
-                    "myVar",
-                    "MyType",
-                    "MyClass",
-                    "Component.MyClass",
-                    "My description",
+                    "Object",
+                    "683572",
+                    "2131165587",
+                    "Object|Object[]",
+                    "Object",
+                    "Object",
+                    "Component.Object",
+                    "Dynamic Object Implementation",
                     "",
                     "",
                     "",
@@ -58,5 +58,22 @@ public final class ComponentHelper {
             )
 
             // add more components here
+/*
+new ComponentData(
+                    "Object",
+                    "683572",
+                    "2131165587",
+                    "Object|Object[]",
+                    "Object",
+                    "Object",
+                    "Component.Object",
+                    "Dynamic Object Implementation",
+                    "",
+                    "",
+                    "",
+                    ""
+            )
+*/
+
     };
 }
