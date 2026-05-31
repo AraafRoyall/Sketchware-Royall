@@ -1,0 +1,58 @@
+name: Revert Commit
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "What do you want to revert?"
+        required: true
+        type: choice
+        options:
+          - Last
+          - By Hash
+        default: Last
+
+      commit_hash:
+        description: "Commit hash to revert (required only for By Hash)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  revert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Choose commit
+        id: pick
+        run: |
+          if [ "${{ github.event.inputs.mode }}" = "Last" ]; then
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          else
+            if [ -z "${{ github.event.inputs.commit_hash }}" ]; then
+              echo "commit_hash is required when mode is By Hash"
+              exit 1
+            fi
+            echo "sha=${{ github.event.inputs.commit_hash }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Revert commit
+        run: |
+          git revert --no-edit "${{ steps.pick.outputs.sha }}"
+
+      - name: Push
+        run: |
+          git push origin HEAD:${{ github.ref_name }}
