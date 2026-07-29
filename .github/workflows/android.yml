@@ -71,7 +71,7 @@ jobs:
         env:
           SKETCHUB_API_KEY: ${{ secrets.SKETCHUB_API_KEY }}
           SW_KEY_PASS: ${{ secrets.SW_KEY_PASS }}
-        run: gradle assembleRelease
+        run: ./gradlew assembleRelease
 
       - name: Set APK Name
         id: name
