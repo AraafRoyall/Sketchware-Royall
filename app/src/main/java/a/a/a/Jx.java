@@ -1216,4 +1216,22 @@ public class Jx {
          return projectFileBean.fileName.contains("_fragment") ? "activity = getActivity();" : "activity = this;";
         }
 
+        private static String pickPipeOption(String raw, int index) {
+                if (TextUtils.isEmpty(raw)) return "";
+                String[] parts = raw.split("\\|");
+                if (parts.length == 0) return "";
+                if (index < 0) index = 0;
+                if (index >= parts.length) index = parts.length - 1;
+                return parts[index].trim();
+        }
+
+        private static int getPipeIndex(String raw, String selected) {
+                if (TextUtils.isEmpty(raw) || TextUtils.isEmpty(selected)) return 0;
+                String[] parts = raw.split("\\|");
+                for (int i = 0; i < parts.length; i++) {
+                        if (parts[i].trim().equals(selected.trim())) return i;
+                }
+                return 0;
+        }
+
 }
