@@ -1,10 +1,10 @@
-name: Revert File From Commit
+name: Reset File To Commit
 
 on:
   workflow_dispatch:
     inputs:
       commit_hash:
-        description: "Commit hash to revert"
+        description: "Commit hash to reset the file to"
         required: true
         type: string
 
@@ -13,7 +13,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  revert:
+  reset:
     runs-on: ubuntu-latest
 
     steps:
@@ -46,40 +46,35 @@ jobs:
           SHORT=$(git rev-parse --short "$HASH")
           TITLE=$(git log -1 --format=%s "$HASH")
 
-          DEFAULT="${{ github.event.repository.default_branch }}"
+          echo "Commit: $HASH"
+          echo "Title: $TITLE"
 
-          # Prefer the default branch if it contains the commit.
-          if git merge-base --is-ancestor "$HASH" "origin/$DEFAULT" 2>/dev/null; then
-            BASE="$DEFAULT"
-          else
-            BASE=$(git for-each-ref \
-              --format='%(refname:strip=3)' \
-              refs/remotes/origin/ \
-              | while read BRANCH; do
-                  [ "$BRANCH" = "HEAD" ] && continue
+          # Find a remote branch containing this exact commit.
+          BASE=$(git for-each-ref \
+            --format='%(refname:strip=3)' \
+            refs/remotes/origin/ \
+            | while read BRANCH; do
+                [ "$BRANCH" = "HEAD" ] && continue
 
-                  if git merge-base --is-ancestor "$HASH" "origin/$BRANCH" 2>/dev/null; then
-                    echo "$BRANCH"
-                    break
-                  fi
-                done)
-          fi
+                if git merge-base --is-ancestor "$HASH" "origin/$BRANCH" 2>/dev/null; then
+                  echo "$BRANCH"
+                  break
+                fi
+              done)
 
           if [ -z "$BASE" ]; then
-            echo "Could not find a branch containing commit:"
-            echo "$HASH"
+            echo "No remote branch contains commit $HASH"
             exit 1
           fi
 
-          # Get files changed by the commit.
+          # Get the file changed by this commit.
           FILES=$(git diff-tree --no-commit-id --name-only -r "$HASH")
 
-          COUNT=$(echo "$FILES" | sed '/^$/d' | wc -l)
+          FILE_COUNT=$(echo "$FILES" | sed '/^$/d' | wc -l)
 
-          if [ "$COUNT" -ne 1 ]; then
-            echo "Expected exactly one changed file."
+          if [ "$FILE_COUNT" -ne 1 ]; then
+            echo "Expected exactly one file changed by the commit."
             echo
-            echo "Commit: $HASH"
             echo "Files:"
             echo "$FILES"
             exit 1
@@ -87,10 +82,8 @@ jobs:
 
           FILE=$(echo "$FILES" | head -n 1)
 
-          echo "Commit : $HASH"
-          echo "Title  : $TITLE"
-          echo "Branch : $BASE"
-          echo "File   : $FILE"
+          echo "Base branch: $BASE"
+          echo "File: $FILE"
 
           echo "hash=$HASH" >> "$GITHUB_OUTPUT"
           echo "short=$SHORT" >> "$GITHUB_OUTPUT"
@@ -98,33 +91,32 @@ jobs:
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
 
-      - name: Create Unique Restore Branch
+      - name: Create Temporary Branch
         id: branch
         run: |
           BASE="${{ steps.info.outputs.base }}"
           SHORT="${{ steps.info.outputs.short }}"
 
-          BRANCH="restore-${SHORT}-${GITHUB_RUN_ID}"
+          BRANCH="reset-${SHORT}-${GITHUB_RUN_ID}"
 
           git checkout -b "$BRANCH" "origin/$BASE"
 
           echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
 
-      - name: Restore Only Changed File
+      - name: Reset Only The File
         run: |
           HASH="${{ steps.info.outputs.hash }}"
           FILE="${{ steps.info.outputs.file }}"
 
-          echo "Restoring:"
+          echo "Resetting:"
           echo "$FILE"
 
-          echo "From commit:"
+          echo "To exact version from:"
           git log -1 --oneline "$HASH"
 
-          echo "Restoring file to state before commit..."
           git restore --source="$HASH" -- "$FILE"
 
-      - name: Commit Revert
+      - name: Commit
         run: |
           FILE="${{ steps.info.outputs.file }}"
 
@@ -136,9 +128,9 @@ jobs:
           fi
 
           git commit \
-            -m "Revert: ${{ steps.info.outputs.title }}"
+            -m "Reset $FILE to ${{ steps.info.outputs.short }}"
 
-      - name: Push Restore Branch
+      - name: Push
         run: |
           git push origin "${{ steps.branch.outputs.name }}"
 
@@ -149,18 +141,17 @@ jobs:
           gh pr create \
             --base "${{ steps.info.outputs.base }}" \
             --head "${{ steps.branch.outputs.name }}" \
-            --title "Revert: ${{ steps.info.outputs.title }}" \
-            --body "This PR reverts the file changed by commit:
+            --title "Reset ${{ steps.info.outputs.file }} to ${{ steps.info.outputs.short }}" \
+            --body "This PR resets only:
+
+          \`${{ steps.info.outputs.file }}\`
+
+          to the exact version stored in commit:
 
           \`${{ steps.info.outputs.hash }}\`
-
-          File:
-          \`${{ steps.info.outputs.file }}\`
 
           Original commit:
           ${{ steps.info.outputs.title }}
 
           Base branch:
-          \`${{ steps.info.outputs.base }}\`
-
-          Only the file changed by the selected commit is reverted."
+          \`${{ steps.info.outputs.base }}\`"
