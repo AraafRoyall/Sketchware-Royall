@@ -4,14 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       commit_hash:
-        description: "Commit hash to restore files to"
+        description: "Commit hash to restore files to (from any branch)"
         required: true
         type: string
 
 permissions:
   contents: write
   pull-requests: write
-  workflows: write
 
 jobs:
   restore:
@@ -29,12 +28,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Fetch All Branches
+        run: |
+          git fetch --all --tags --prune
+
       - name: Get Commit Info
         id: commit
         run: |
           HASH="${{ inputs.commit_hash }}"
 
-          git rev-parse "$HASH" >/dev/null
+          if ! git cat-file -e "$HASH^{commit}" 2>/dev/null; then
+            echo "Commit not found: $HASH"
+            exit 1
+          fi
 
           TITLE=$(git log -1 --format=%s "$HASH")
           SHORT=$(git rev-parse --short "$HASH")
@@ -46,12 +52,22 @@ jobs:
         run: |
           git checkout -b "restore-${{ steps.commit.outputs.short }}"
 
-      - name: Restore Files
+      - name: Restore Repository To Commit
         run: |
-          git restore --source="${{ inputs.commit_hash }}" --staged --worktree .
+          HASH="${{ inputs.commit_hash }}"
 
-      - name: Commit Restore
-        run: |
+          echo "Restoring files to:"
+          git log -1 --oneline "$HASH"
+
+          git read-tree --reset -u "$HASH"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No file changes detected."
+            exit 1
+          fi
+
           git commit -m "Restore to: ${{ steps.commit.outputs.title }}"
 
       - name: Push Branch
@@ -71,4 +87,6 @@ jobs:
           ${{ inputs.commit_hash }}
 
           Original commit:
-          ${{ steps.commit.outputs.title }}"
+          ${{ steps.commit.outputs.title }}
+
+          The target commit may belong to another branch."
