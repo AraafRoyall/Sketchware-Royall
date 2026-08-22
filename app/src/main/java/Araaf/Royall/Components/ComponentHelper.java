@@ -46,7 +46,7 @@ public final class ComponentHelper {
                     "Object",
                     "683572",
                     "2131165587",
-                    "Object|Object[]",
+                    "Object",
                     "Object",
                     "Object",
                     "Component.Object",
