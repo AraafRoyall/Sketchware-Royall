@@ -1,0 +1,73 @@
+name: Restore To Commit
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_hash:
+        description: "Commit hash to restore files to"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Get Commit Info
+        id: commit
+        run: |
+          HASH="${{ inputs.commit_hash }}"
+
+          git rev-parse "$HASH" >/dev/null
+
+          TITLE=$(git log -1 --format=%s "$HASH")
+          SHORT=$(git rev-parse --short "$HASH")
+
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
+
+      - name: Create Branch
+        run: |
+          git checkout -b "restore-${{ steps.commit.outputs.short }}"
+
+      - name: Restore Files
+        run: |
+          git restore --source="${{ inputs.commit_hash }}" --staged --worktree .
+
+      - name: Commit Restore
+        run: |
+          git commit -m "Restore to: ${{ steps.commit.outputs.title }}"
+
+      - name: Push Branch
+        run: |
+          git push origin "restore-${{ steps.commit.outputs.short }}"
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base "${{ github.ref_name }}" \
+            --head "restore-${{ steps.commit.outputs.short }}" \
+            --title "Restore to: ${{ steps.commit.outputs.title }}" \
+            --body "This PR restores the repository files to commit:
+
+          ${{ inputs.commit_hash }}
+
+          Original commit:
+          ${{ steps.commit.outputs.title }}"
