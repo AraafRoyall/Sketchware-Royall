@@ -1,10 +1,10 @@
-name: Restore File From Commit
+name: Revert File From Commit
 
 on:
   workflow_dispatch:
     inputs:
       commit_hash:
-        description: "Commit hash to restore the edited file from"
+        description: "Commit hash to revert"
         required: true
         type: string
 
@@ -13,7 +13,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  restore:
+  revert:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,10 +30,10 @@ jobs:
 
       - name: Fetch All Branches
         run: |
-          git fetch origin "+refs/heads/*:refs/remotes/origin/*" --tags --prune
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune
 
-      - name: Find Commit
-        id: commit
+      - name: Find Commit, Branch and File
+        id: info
         run: |
           HASH="${{ inputs.commit_hash }}"
 
@@ -46,79 +46,87 @@ jobs:
           SHORT=$(git rev-parse --short "$HASH")
           TITLE=$(git log -1 --format=%s "$HASH")
 
-          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
-          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
-          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          DEFAULT="${{ github.event.repository.default_branch }}"
 
-      - name: Find Base Branch
-        id: branch
-        run: |
-          HASH="${{ steps.commit.outputs.hash }}"
-
-          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
-
-          if git merge-base --is-ancestor "$HASH" "origin/$DEFAULT_BRANCH" 2>/dev/null; then
-            BRANCH="$DEFAULT_BRANCH"
+          # Prefer the default branch if it contains the commit.
+          if git merge-base --is-ancestor "$HASH" "origin/$DEFAULT" 2>/dev/null; then
+            BASE="$DEFAULT"
           else
-            BRANCH=$(git for-each-ref \
+            BASE=$(git for-each-ref \
               --format='%(refname:strip=3)' \
               refs/remotes/origin/ \
-              | while read B; do
-                  if [ "$B" != "HEAD" ] && \
-                     git merge-base --is-ancestor "$HASH" "origin/$B" 2>/dev/null; then
-                    echo "$B"
+              | while read BRANCH; do
+                  [ "$BRANCH" = "HEAD" ] && continue
+
+                  if git merge-base --is-ancestor "$HASH" "origin/$BRANCH" 2>/dev/null; then
+                    echo "$BRANCH"
                     break
                   fi
                 done)
           fi
 
-          if [ -z "$BRANCH" ]; then
-            echo "Could not find a branch containing commit $HASH"
+          if [ -z "$BASE" ]; then
+            echo "Could not find a branch containing commit:"
+            echo "$HASH"
             exit 1
           fi
 
-          echo "Base branch: $BRANCH"
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-
-      - name: Find Edited File
-        id: file
-        run: |
-          HASH="${{ steps.commit.outputs.hash }}"
-
+          # Get files changed by the commit.
           FILES=$(git diff-tree --no-commit-id --name-only -r "$HASH")
 
           COUNT=$(echo "$FILES" | sed '/^$/d' | wc -l)
 
           if [ "$COUNT" -ne 1 ]; then
-            echo "The commit does not edit exactly one file."
+            echo "Expected exactly one changed file."
             echo
-            echo "Files changed:"
+            echo "Commit: $HASH"
+            echo "Files:"
             echo "$FILES"
-            echo
-            echo "This workflow requires a commit that changes exactly one file."
             exit 1
           fi
 
           FILE=$(echo "$FILES" | head -n 1)
 
-          echo "File: $FILE"
+          echo "Commit : $HASH"
+          echo "Title  : $TITLE"
+          echo "Branch : $BASE"
+          echo "File   : $FILE"
+
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
 
-      - name: Create Restore Branch
+      - name: Create Unique Restore Branch
+        id: branch
         run: |
-          git checkout -b "restore-${{ steps.commit.outputs.short }}" \
-            "origin/${{ steps.branch.outputs.branch }}"
+          BASE="${{ steps.info.outputs.base }}"
+          SHORT="${{ steps.info.outputs.short }}"
 
-      - name: Restore File
+          BRANCH="restore-${SHORT}-${GITHUB_RUN_ID}"
+
+          git checkout -b "$BRANCH" "origin/$BASE"
+
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Only Changed File
         run: |
-          HASH="${{ steps.commit.outputs.hash }}"
-          FILE="${{ steps.file.outputs.file }}"
+          HASH="${{ steps.info.outputs.hash }}"
+          FILE="${{ steps.info.outputs.file }}"
 
+          echo "Restoring:"
+          echo "$FILE"
+
+          echo "From commit:"
+          git log -1 --oneline "$HASH"
+
+          echo "Restoring file to state before commit..."
           git restore --source="$HASH^" -- "$FILE"
 
-      - name: Commit Restore
+      - name: Commit Revert
         run: |
-          FILE="${{ steps.file.outputs.file }}"
+          FILE="${{ steps.info.outputs.file }}"
 
           git add -- "$FILE"
 
@@ -127,31 +135,32 @@ jobs:
             exit 1
           fi
 
-          git commit -m "Restore $FILE from before ${{ steps.commit.outputs.short }}"
+          git commit \
+            -m "Revert: ${{ steps.info.outputs.title }}"
 
-      - name: Push Branch
+      - name: Push Restore Branch
         run: |
-          git push origin "restore-${{ steps.commit.outputs.short }}"
+          git push origin "${{ steps.branch.outputs.name }}"
 
       - name: Create Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh pr create \
-            --base "${{ steps.branch.outputs.branch }}" \
-            --head "restore-${{ steps.commit.outputs.short }}" \
-            --title "Revert: ${{ steps.commit.outputs.title }}" \
-            --body "This PR restores the file changed by commit:
+            --base "${{ steps.info.outputs.base }}" \
+            --head "${{ steps.branch.outputs.name }}" \
+            --title "Revert: ${{ steps.info.outputs.title }}" \
+            --body "This PR reverts the file changed by commit:
 
-          \`${{ steps.file.outputs.file }}\`
+          \`${{ steps.info.outputs.hash }}\`
 
-          Commit:
-          \`${{ steps.commit.outputs.hash }}\`
+          File:
+          \`${{ steps.info.outputs.file }}\`
 
           Original commit:
-          ${{ steps.commit.outputs.title }}
+          ${{ steps.info.outputs.title }}
 
           Base branch:
-          \`${{ steps.branch.outputs.branch }}\`
+          \`${{ steps.info.outputs.base }}\`
 
-          Only the file changed by the selected commit is restored."
+          Only the file changed by the selected commit is reverted."
