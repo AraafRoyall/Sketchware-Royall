@@ -122,7 +122,7 @@ jobs:
           git log -1 --oneline "$HASH"
 
           echo "Restoring file to state before commit..."
-          git restore --source="$HASH^" -- "$FILE"
+          git restore --source="$HASH" -- "$FILE"
 
       - name: Commit Revert
         run: |
