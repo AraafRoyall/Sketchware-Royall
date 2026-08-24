@@ -1,4 +1,4 @@
-name: Reset File To Commit pro
+name: Reset File To Commit
 
 on:
   workflow_dispatch:
@@ -54,7 +54,6 @@ jobs:
           echo "Commit: $HASH"
           echo "File name: $NAME"
 
-          # Find the branch containing the selected commit.
           BASE=$(git for-each-ref \
             --format='%(refname:strip=3)' \
             refs/remotes/origin/ \
@@ -72,28 +71,28 @@ jobs:
             exit 1
           fi
 
-          # Find the full path of the requested filename among files
-          # changed by the selected commit.
-          FILE=$(git diff-tree --no-commit-id --name-only -r "$HASH" \
-            | while IFS= read -r PATH; do
-                [ "$(basename "$PATH")" = "$NAME" ] && echo "$PATH"
-              done)
+          FILE=""
 
-          COUNT=$(echo "$FILE" | sed '/^$/d' | wc -l)
+          while IFS= read -r PATH; do
+            CURRENT="${PATH##*/}"
 
-          if [ "$COUNT" -eq 0 ]; then
+            if [ "$CURRENT" = "$NAME" ]; then
+              if [ -n "$FILE" ]; then
+                echo "More than one file named '$NAME' was changed by this commit:"
+                echo "$FILE"
+                echo "$PATH"
+                exit 1
+              fi
+
+              FILE="$PATH"
+            fi
+          done < <(git diff-tree --no-commit-id --name-only -r "$HASH")
+
+          if [ -z "$FILE" ]; then
             echo "File '$NAME' was not changed by commit $HASH"
             exit 1
           fi
 
-          if [ "$COUNT" -gt 1 ]; then
-            echo "More than one file named '$NAME' was changed by this commit:"
-            echo "$FILE"
-            echo "Use a filename that uniquely identifies one changed file."
-            exit 1
-          fi
-
-          # Make sure the file exists in the selected commit.
           if ! git cat-file -e "$HASH:$FILE" 2>/dev/null; then
             echo "File '$FILE' does not exist in commit $HASH"
             exit 1
