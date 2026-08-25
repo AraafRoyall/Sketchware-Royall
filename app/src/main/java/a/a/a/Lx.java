@@ -263,7 +263,7 @@ public class Lx {
         return switch (eventName) {
             case "onClick" -> "@Override\r\n" +
         "public void onClick(View _view) {\r\n" +
-        "final String _" + targetId + "_getText = ((TextView) _view).getText().toString();\r\n" +
+        "final String _getText = ((TextView) _view).getText().toString();\r\n" +
         eventLogic + "\r\n" +
                     "}";
             case "onBackPressed" -> "@Override\r\n" +
