@@ -821,7 +821,7 @@ public class ManageEvent {
 
     public static String h(String eventName) {
         return switch (eventName) {
-            case "onClick" -> "%s %m.view.view";
+            case "onClick" -> "%s.getText";
             case "onUpdateProfileComplete", "onEmailVerificationSent", "onDeleteUserComplete",
                  "onUpdateEmailComplete", "onGoogleSignIn", "signInWithPhoneAuthComplete",
                  "onUpdatePasswordComplete" -> "%b.success %s.errorMessage";
@@ -900,7 +900,7 @@ public class ManageEvent {
 
     public static String i(String targetId, String eventName) {
         return switch (eventName) {
-            case "onClick" -> "When " + targetId + " " + eventName + " > %s.###_getText & %m.view.view";
+            case "onClick" -> "When " + targetId + " " + eventName + " > %s.getText";
             case "onUpdateProfileComplete", "onEmailVerificationSent", "onDeleteUserComplete",
                  "onUpdateEmailComplete", "onGoogleSignIn", "onUpdatePasswordComplete",
                  "signInWithPhoneAuthComplete" ->
