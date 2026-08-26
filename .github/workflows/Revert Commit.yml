@@ -3,22 +3,14 @@ name: Revert Commit
 on:
   workflow_dispatch:
     inputs:
-      mode:
-        description: "What do you want to revert?"
-        required: true
-        type: choice
-        options:
-          - Last
-          - By Hash
-        default: Last
-
       commit_hash:
-        description: "Commit hash to revert (required only for By Hash)"
-        required: false
+        description: "Commit hash to revert"
+        required: true
         type: string
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   revert:
@@ -36,23 +28,42 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Choose commit
-        id: pick
+      - name: Get Commit Info
+        id: commit
         run: |
-          if [ "${{ github.event.inputs.mode }}" = "Last" ]; then
-            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          else
-            if [ -z "${{ github.event.inputs.commit_hash }}" ]; then
-              echo "commit_hash is required when mode is By Hash"
-              exit 1
-            fi
-            echo "sha=${{ github.event.inputs.commit_hash }}" >> "$GITHUB_OUTPUT"
-          fi
+          HASH="${{ inputs.commit_hash }}"
 
-      - name: Revert commit
-        run: |
-          git revert --no-edit "${{ steps.pick.outputs.sha }}"
+          git rev-parse "$HASH" >/dev/null
 
-      - name: Push
+          TITLE=$(git log -1 --format=%s "$HASH")
+          SHORT=$(git rev-parse --short "$HASH")
+
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
+
+      - name: Create Branch
         run: |
-          git push origin HEAD:${{ github.ref_name }}
+          git checkout -b "revert-${{ steps.commit.outputs.short }}"
+
+      - name: Revert Commit
+        run: |
+          git revert --no-edit "${{ inputs.commit_hash }}"
+
+      - name: Push Branch
+        run: |
+          git push origin "revert-${{ steps.commit.outputs.short }}"
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base "${{ github.ref_name }}" \
+            --head "revert-${{ steps.commit.outputs.short }}" \
+            --title "Revert: ${{ steps.commit.outputs.title }}" \
+            --body "This PR reverts commit:
+
+          ${{ inputs.commit_hash }}
+
+          Original commit:
+          ${{ steps.commit.outputs.title }}"
