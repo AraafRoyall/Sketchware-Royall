@@ -1,0 +1,172 @@
+name: Reset File To Commit pro
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_hash:
+        description: "Commit hash"
+        required: true
+        type: string
+
+      file_name:
+        description: "File name changed by the commit (example: EventsHandler.java)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch All Branches
+        run: |
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune
+
+      - name: Find Commit, Branch and File
+        id: info
+        run: |
+          HASH="${{ inputs.commit_hash }}"
+          NAME="${{ inputs.file_name }}"
+
+          if ! git cat-file -e "$HASH^{commit}" 2>/dev/null; then
+            echo "Commit not found: $HASH"
+            exit 1
+          fi
+
+          HASH=$(git rev-parse "$HASH")
+          SHORT=$(git rev-parse --short "$HASH")
+
+          echo "Commit: $HASH"
+          echo "File name: $NAME"
+
+          # Find the branch containing the selected commit.
+          BASE=$(git for-each-ref \
+            --format='%(refname:strip=3)' \
+            refs/remotes/origin/ \
+            | while read BRANCH; do
+                [ "$BRANCH" = "HEAD" ] && continue
+
+                if git merge-base --is-ancestor "$HASH" "origin/$BRANCH" 2>/dev/null; then
+                  echo "$BRANCH"
+                  break
+                fi
+              done)
+
+          if [ -z "$BASE" ]; then
+            echo "No remote branch contains commit $HASH"
+            exit 1
+          fi
+
+          # Find the full path of the requested filename among files
+          # changed by the selected commit.
+          FILE=$(git diff-tree --no-commit-id --name-only -r "$HASH" \
+            | while IFS= read -r PATH; do
+                [ "$(basename "$PATH")" = "$NAME" ] && echo "$PATH"
+              done)
+
+          COUNT=$(echo "$FILE" | sed '/^$/d' | wc -l)
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "File '$NAME' was not changed by commit $HASH"
+            exit 1
+          fi
+
+          if [ "$COUNT" -gt 1 ]; then
+            echo "More than one file named '$NAME' was changed by this commit:"
+            echo "$FILE"
+            echo "Use a filename that uniquely identifies one changed file."
+            exit 1
+          fi
+
+          # Make sure the file exists in the selected commit.
+          if ! git cat-file -e "$HASH:$FILE" 2>/dev/null; then
+            echo "File '$FILE' does not exist in commit $HASH"
+            exit 1
+          fi
+
+          echo "Base branch: $BASE"
+          echo "Full file path: $FILE"
+
+          {
+            echo "hash=$HASH"
+            echo "short=$SHORT"
+            echo "base=$BASE"
+            echo "file=$FILE"
+            echo "name=$NAME"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create Temporary Branch
+        id: branch
+        run: |
+          BASE="${{ steps.info.outputs.base }}"
+          SHORT="${{ steps.info.outputs.short }}"
+
+          BRANCH="reset-${SHORT}-${GITHUB_RUN_ID}"
+
+          git checkout -b "$BRANCH" "origin/$BASE"
+
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Reset Only Selected File
+        run: |
+          HASH="${{ steps.info.outputs.hash }}"
+          FILE="${{ steps.info.outputs.file }}"
+
+          echo "Resetting only:"
+          echo "$FILE"
+
+          echo "To exact version from commit:"
+          git log -1 --oneline "$HASH"
+
+          git restore --source="$HASH" -- "$FILE"
+
+      - name: Commit
+        run: |
+          FILE="${{ steps.info.outputs.file }}"
+          NAME="${{ steps.info.outputs.name }}"
+          SHORT="${{ steps.info.outputs.short }}"
+
+          git add -- "$FILE"
+
+          if git diff --cached --quiet; then
+            echo "No changes detected for $FILE"
+            exit 1
+          fi
+
+          git commit -m "Revert: $NAME $SHORT"
+
+      - name: Push
+        run: |
+          git push origin "${{ steps.branch.outputs.name }}"
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FILE="${{ steps.info.outputs.file }}"
+          NAME="${{ steps.info.outputs.name }}"
+          HASH="${{ steps.info.outputs.hash }}"
+          BASE="${{ steps.info.outputs.base }}"
+
+          gh pr create \
+            --base "$BASE" \
+            --head "${{ steps.branch.outputs.name }}" \
+            --title "Revert: $NAME ${{ steps.info.outputs.short }}" \
+            --body "Resets only \`$FILE\` to its exact version from commit \`$HASH\`.
+
+          Base branch: \`$BASE\`"
