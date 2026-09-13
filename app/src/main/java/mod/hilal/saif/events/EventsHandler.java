@@ -433,7 +433,8 @@ public class EventsHandler {
 		return switch (name) {
 			case "Import", "initializeLogic", "onSwipeRefreshLayout",
 			"onPreExecute" -> "";
-			case " onLongClick" -> "%s %m.view" ;
+			case " onLongClick" -> "%s";
+            case "onClick" -> "%s";
 			case "onActivityResult" -> "%d.requestCode %d.resultCode %m.intent";
 			case "onTabLayoutNewTabAdded", "onProgressUpdate" -> "%d";
 			case "doInBackground", "onPostExecute" -> "%s";
@@ -468,6 +469,7 @@ public class EventsHandler {
 				yield "";
 			}
 		};
+        
 	}
 	
 	public static String getSpec(String name, String event) {
@@ -477,7 +479,8 @@ public class EventsHandler {
 			"OnActivityResult %d.requestCode %d.resultCode %m.intent.data";
 			case "initializeLogic" -> "initializeLogic";
 			case "onSwipeRefreshLayout" -> "when " + name + " refresh";
-			case " onLongClick" -> "when " + name + " long clicked %s.getText %m.view";
+            case "onClick" -> "when " + name + " clicked %s.getText";
+			case " onLongClick" -> "when " + name + " long clicked %s.getText";
 			case "onTabLayoutNewTabAdded" -> name + " return tab title %d.position";
 			case "onPreExecute" -> name + " onPreExecute ";
 			case "doInBackground" -> name + " doInBackground %s.param";
