@@ -360,7 +360,7 @@ public class EventsHandler {
 			"public boolean onLongClick(View _view) {\r\n" +
 			"final String _getText = ((TextView) _view).getText().toString();\r\n" +
 			param + "\r\n" +
-			"return true;\r\n" +
+		//	"return true;\r\n" +
 			"}";
 			case "onTabLayoutNewTabAdded" ->
 			// Changed from: "public  CharSequence  onTabLayoutNewTabAdded( int   _position ){..."
@@ -433,7 +433,7 @@ public class EventsHandler {
 		return switch (name) {
 			case "Import", "initializeLogic", "onSwipeRefreshLayout",
 			"onPreExecute" -> "";
-			case " onLongClick" -> "%s.getText";
+			case " onLongClick" -> "%s";
 			case "onActivityResult" -> "%d.requestCode %d.resultCode %m.intent";
 			case "onTabLayoutNewTabAdded", "onProgressUpdate" -> "%d";
 			case "doInBackground", "onPostExecute" -> "%s";
@@ -477,7 +477,7 @@ public class EventsHandler {
 			"OnActivityResult %d.requestCode %d.resultCode %m.intent.data";
 			case "initializeLogic" -> "initializeLogic";
 			case "onSwipeRefreshLayout" -> "when " + name + " refresh";
-			case " onLongClick" -> "when " + name + " long clicked";
+			case " onLongClick" -> "when " + name + " long clicked %s.getText";
 			case "onTabLayoutNewTabAdded" -> name + " return tab title %d.position";
 			case "onPreExecute" -> name + " onPreExecute ";
 			case "doInBackground" -> name + " doInBackground %s.param";
