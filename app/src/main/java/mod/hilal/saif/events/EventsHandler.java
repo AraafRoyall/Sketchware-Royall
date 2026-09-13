@@ -356,9 +356,9 @@ public class EventsHandler {
 			param + "\r\n" +
 			"}";
 			case " onLongClick" ->
-			// Changed from: "@Override\r\n public boolean..."
 			"@Override\r\n" +
 			"public boolean onLongClick(View _view) {\r\n" +
+			"final String _getText = ((TextView) _view).getText().toString();\r\n" +
 			param + "\r\n" +
 			"return true;\r\n" +
 			"}";
@@ -431,8 +431,9 @@ public class EventsHandler {
 	
 	public static String getBlocks(String name) {
 		return switch (name) {
-			case "Import", "initializeLogic", "onSwipeRefreshLayout", " onLongClick",
+			case "Import", "initializeLogic", "onSwipeRefreshLayout",
 			"onPreExecute" -> "";
+			case " onLongClick" -> "%s.getText";
 			case "onActivityResult" -> "%d.requestCode %d.resultCode %m.intent";
 			case "onTabLayoutNewTabAdded", "onProgressUpdate" -> "%d";
 			case "doInBackground", "onPostExecute" -> "%s";
